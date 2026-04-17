@@ -1,56 +1,74 @@
-//import 'dart:io';
-
+// Firebase and authentication packages
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+
+// Flutter core packages
 import 'package:flutter/material.dart';
+
+// Permission handling for location access
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart' show ChangeNotifierProvider;
+
+// App pages and navigation
 import 'package:soltech_app/auth/signin_page.dart';
 import 'package:soltech_app/pages/home_page.dart';
+
+// Firebase configuration (platform-specific credentials)
 import 'package:soltech_app/firebase_options.dart';
 
-void main() async{
+import 'appinfo/app_info.dart' show AppInfo;
 
+/// Main entry point for the Soltech App
+///
+/// Initializes:
+/// - Firebase for authentication and data management
+/// - Location permissions for map-based services
+/// - Routes to SignIn or Home page based on auth state
+void main() async {
+  // Ensure Flutter binding is initialized before async operations
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform, // Use this for all platforms
-    );
 
-  await Permission.locationWhenInUse.isDenied.then((value)
-  {
-    if (value){
+  // Initialize Firebase with platform-specific configuration
+  // (automatically selects correct settings for Android/iOS/Web)
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Request location permission on app startup
+  // - Check if permission is already denied
+  // - If denied, request permission from user
+  await Permission.locationWhenInUse.isDenied.then((value) {
+    if (value) {
       Permission.locationWhenInUse.request();
     }
   });
 
-  runApp(const MyApp());
+  // Start the Flutter app after all initialization is complete
+  runApp(const MyApp());}
 
-            // options: const FirebaseOptions(
-            // apiKey: "AIzaSyCTIKIyi_1oDxoBFnLobNV-QTJEt5TC100",
-            // authDomain: "soltech-clone.firebaseapp.com",
-            // projectId: "soltech-clone",
-            // storageBucket: "soltech-clone.firebasedatabase.app",
-            // messagingSenderId: "329921756016",
-            // appId: "1:329921756016:web:a9492876b99074d4606db5",
-            // measurementId: "G-5KR6WE0CXX",
-            //databaseURL: "https://soltech-clone-default-rtdb.europe-west1.firebasedatabase.app/"
-
-}
-
-
-
+/// Root widget for the Soltech App
+///
+/// Configures:
+/// - Material Design theme
+/// - Initial route based on authentication state
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Users App',
-      theme: ThemeData(
-
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+    return ChangeNotifierProvider(
+      create: (context) => AppInfo(),
+      child: MaterialApp(
+        title: 'Users App',
+        theme: ThemeData(
+          // Use deep purple as the primary color scheme
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        ),
+        // Route to SignInPage if user is not authenticated, otherwise HomePage
+        home: FirebaseAuth.instance.currentUser == null
+            ? const SignInPage()
+            : const HomePage(),
       ),
-      home: FirebaseAuth.instance.currentUser == null? SignInPage() : HomePage(),
     );
   }
 }
