@@ -1,25 +1,19 @@
 // Async operations (Completer for map controller)
 import 'dart:async';
-
 // Flutter UI framewoimport 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-
 // Location services
 import 'package:geolocator/geolocator.dart';
-
 // Google Maps widget
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-
 // State management (Provider)
 import 'package:provider/provider.dart' show Provider;
-
 // App-specific imports
 import '../appinfo/app_info.dart';
 import 'package:soltech_app/global.dart';
 import 'package:soltech_app/methods/google_map_methods.dart' show GoogleMapMethods;
-
 import '../auth/signin_page.dart';
 
 /// Home page displaying map and location search UI
@@ -72,37 +66,50 @@ class _HomePageState extends State<HomePage> {
   /// 2. Animate map camera to user location
   /// 3. Call reverse geocoding to get human-readable address
   void getCurrentLocation() async {
-    try {
       // Request current GPS position with high accuracy
-      Position userPosition = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
+      Position userPosition = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.bestForNavigation);
 
       currentPositionOfUser = userPosition;
-
       // Create LatLng from position
-      LatLng userLatLng =
-          LatLng(userPosition.latitude, userPosition.longitude);
-
+      LatLng userLatLng = LatLng(userPosition.latitude, userPosition.longitude);
       // Create camera position at user location
-      CameraPosition positionCamera =
-          CameraPosition(target: userLatLng, zoom: 14);
-
+      CameraPosition positionCamera = CameraPosition(target: userLatLng, zoom: 14);
       // Animate map camera to user's location
       controllerGoogleMap!.animateCamera(CameraUpdate.newCameraPosition(positionCamera));
-
-
       // Call reverse geocoding to get address and update provider
-
       await GoogleMapMethods.convertGeoGraphicCoOrdinatesIntoHumanReadableAddress(currentPositionOfUser!, context);
 
-      } catch (e) {
-      if (kDebugMode) {
-        print("\n\nError: \n$e\n\n");
-      }
-    }
+      await getUserInfoAndBlockStatus();
+  }
+
+   getUserInfoAndBlockStatus() async
+  {
+    DatabaseReference userRef = FirebaseDatabase.instance.ref().child("users").child(FirebaseAuth.instance.currentUser!.uid);
+
+    await userRef.once().then((dataSnap){
+      if(dataSnap.snapshot.value != null)
+        {
+          if((dataSnap.snapshot.value as Map)["blockStatus"] == "no"){
+            setState((){
+              userName = (dataSnap.snapshot.value as Map)["name"];
+              userPhone = (dataSnap.snapshot.value as Map)["phone"];
+        });
+        }
+          else{
+            FirebaseAuth.instance.signOut();
+
+            Navigator.push(context, MaterialPageRoute(builder: (c) => const SignInPage()));
+            associateMethods.showSnackBarMsg("You are blocked, contact admin via @bossdeenoo@gmail.com", context);
+          }
+
+        }
+      else
+        {
+          FirebaseAuth.instance.signOut();
+
+          Navigator.push(context, MaterialPageRoute(builder: (c) => const SignInPage()));
+        }
+    });
   }
 
   @override
@@ -133,13 +140,14 @@ class _HomePageState extends State<HomePage> {
                         Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text("John Doe",
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),),
-
-                            SizedBox(height: 6,),
-
+                          children: [
                             Text(
+                              userName,
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),),
+
+                            const SizedBox(height: 6,),
+
+                            const Text(
                                 "Profile",
                               style:  TextStyle(
                                 color: Colors.grey,
