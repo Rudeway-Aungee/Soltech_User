@@ -1,21 +1,15 @@
 // Firebase and authentication packages
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-
 // Flutter core packages
 import 'package:flutter/material.dart';
-
 // Permission handling for location access
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart' show ChangeNotifierProvider;
-
 // App pages and navigation
 import 'package:soltech_app/auth/signin_page.dart';
 import 'package:soltech_app/pages/home_page.dart';
-
-// Firebase configuration (platform-specific credentials)
 import 'package:soltech_app/firebase_options.dart';
-
 import 'appinfo/app_info.dart' show AppInfo;
 
 /// Main entry point for the Soltech App

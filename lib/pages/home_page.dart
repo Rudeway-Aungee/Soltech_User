@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 // State management (Provider)
 import 'package:provider/provider.dart' show Provider;
+import 'package:soltech_app/pages/select_destination_page.dart';
 // App-specific imports
 import '../appinfo/app_info.dart';
 import 'package:soltech_app/global.dart';
@@ -286,9 +287,17 @@ class _HomePageState extends State<HomePage> {
                               // Listen to AppInfo changes to display pickup location
                               // Using Provider.of with listen: true to rebuild on location change
                               Text(
-                                Provider.of<AppInfo>(context, listen: true).userPickupLocation == null
-                                    ? "pickup location null, please wait..."
-                                    : "${(Provider.of<AppInfo>(context, listen: true).userPickupLocation!.placeName!).substring(0, 50)}...",
+                                () {
+                                  final pickup = Provider.of<AppInfo>(context, listen: true).userPickupLocation;
+                                  final placeName = pickup?.placeName?.trim();
+                                  if (placeName == null || placeName.isEmpty) {
+                                    return "pickup location null, please wait...";
+                                  }
+                                  if (placeName.length <= 50) {
+                                    return placeName;
+                                  }
+                                  return "${placeName.substring(0, 50)}...";
+                                }(),
                                 style: const TextStyle(
                                     fontSize: 18, color: Colors.grey),
                               ),
@@ -308,20 +317,26 @@ class _HomePageState extends State<HomePage> {
                             color: Colors.grey,
                           ),
                           const SizedBox(width: 13),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Text(
-                                "To ",
-                                style: TextStyle(
-                                    fontSize: 18, color: Colors.grey),
-                              ),
-                              Text(
-                                "Search Destination Here ",
-                                style: TextStyle(
-                                    fontSize: 18, color: Colors.grey),
-                              ),
-                            ],
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (c) => const SelectDestinationPage()));
+                            },
+
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "To ",
+                                  style: TextStyle(
+                                      fontSize: 18, color: Colors.grey),
+                                ),
+                                Text(
+                                  "Search Destination Here ",
+                                  style: TextStyle(
+                                      fontSize: 18, color: Colors.grey),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -331,7 +346,9 @@ class _HomePageState extends State<HomePage> {
 
                       // === ACTION BUTTON ===
                       ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (c) => const SelectDestinationPage()));
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                         ),

@@ -37,7 +37,7 @@ class GoogleMapMethods {
       Position position, BuildContext context) async
   {
     String humanReadableAddress = "";
-    String geoCodingApiUrl = "https://maps.googleapis.com/maps/api/geocode/json?lat,lng=${position.latitude},${position.longitude}&key=$googleMapKey";
+    String geoCodingApiUrl = "https://maps.googleapis.com/maps/api/geocode/json?latlng=${position.latitude},${position.longitude}&key=$googleMapKey";
 
     var responseFromAPI = await sendRequestToAPI(geoCodingApiUrl);
 
