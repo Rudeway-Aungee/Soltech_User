@@ -41,7 +41,6 @@ void main() async {
   runApp(const MyApp());}
 
 /// Root widget for the Soltech App
-///
 /// Configures:
 /// - Material Design theme
 /// - Initial route based on authentication state

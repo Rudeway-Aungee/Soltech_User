@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 class LoadingDialog extends StatelessWidget {
+  // Message to display to the user (e.g., "Signing in...", "Signing up...").
   final String messageTxt;
 
   const LoadingDialog({super.key, required this.messageTxt});
@@ -23,13 +24,18 @@ class LoadingDialog extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
+              // Spacer for visual breathing room.
               const SizedBox(width: 5,),
 
+              // Progress indicator communicates a blocking async operation.
+              // The green color indicates a positive/loading state.
               const CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.green)),
 
               const SizedBox(width: 8,),
 
+              // Caller-specified message (e.g., "Signing in...", "Signing up...").
+              // Informs the user what operation is in progress.
               Text(
                 messageTxt,
                 style: const TextStyle(
