@@ -277,7 +277,11 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      if (ride.status == 'searching' && ride.serviceType == 'taxi') {
+      // Passenger requests may store service labels such as "City Ride",
+      // "Intercity", "Rental", or "Hire". Do not restrict this list to
+      // serviceType == "taxi", otherwise drivers will not see passenger rides
+      // created from the new passenger UI.
+      if (ride.status == 'searching') {
         rides.add(ride);
       }
     });

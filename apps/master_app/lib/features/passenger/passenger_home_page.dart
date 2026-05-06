@@ -372,45 +372,48 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (directionDetails == null) {
-      if (!mounted) return;
-      associateMethods.showSnackBarMsg(
-        'Network error. Please check your connection.',
-        context,
+      _applyApproximateRouteFallback(
+        pickup: pickup,
+        dropoff: dropoff,
+        waypoints: waypoints,
+        reason: 'Google route service is unavailable. Using an approximate route for now.',
       );
       return;
     }
 
     final String apiStatus = (directionDetails['status'] ?? '').toString();
     if (apiStatus != 'OK') {
-      if (!mounted) return;
-      String errorMsg = 'Unable to calculate route.';
-      if (apiStatus == 'ZERO_RESULTS') {
-        errorMsg = 'No route found between these locations.';
-      } else if (apiStatus == 'NOT_FOUND') {
-        errorMsg = 'One or more locations could not be found.';
-      } else if (apiStatus == 'INVALID_REQUEST') {
-        errorMsg = 'Invalid route request. Please try different locations.';
-      } else if (apiStatus == 'REQUEST_DENIED') {
-        errorMsg = 'API key issue. Please contact support.';
-      } else if (apiStatus == 'OVER_QUERY_LIMIT') {
-        errorMsg = 'Too many requests. Please try again later.';
-      }
-      associateMethods.showSnackBarMsg(errorMsg, context);
-      return;
-    }
-
-    if (directionDetails['routes'] == null ||
-        (directionDetails['routes'] as List<dynamic>).isEmpty) {
-      if (!mounted) return;
-      associateMethods.showSnackBarMsg(
-        'No routes available for this trip.',
-        context,
+      final String apiMessage = (directionDetails['error_message'] ?? '').toString();
+      final String reason = apiStatus == 'REQUEST_DENIED'
+          ? 'Google Directions API key issue. Using an approximate route for testing.'
+          : apiStatus == 'OVER_QUERY_LIMIT'
+              ? 'Google route quota reached. Using an approximate route for now.'
+              : apiStatus == 'ZERO_RESULTS'
+                  ? 'No road route was returned. Using an approximate route for now.'
+                  : 'Unable to calculate the road route. Using an approximate route for now.';
+      debugPrint('Google Directions API status: $apiStatus $apiMessage');
+      _applyApproximateRouteFallback(
+        pickup: pickup,
+        dropoff: dropoff,
+        waypoints: waypoints,
+        reason: reason,
       );
       return;
     }
 
-    final Map<String, dynamic> route =
-        directionDetails['routes'][0] as Map<String, dynamic>;
+    final List<dynamic> routes =
+        (directionDetails['routes'] as List<dynamic>?) ?? <dynamic>[];
+    if (routes.isEmpty) {
+      _applyApproximateRouteFallback(
+        pickup: pickup,
+        dropoff: dropoff,
+        waypoints: waypoints,
+        reason: 'No route was returned. Using an approximate route for now.',
+      );
+      return;
+    }
+
+    final Map<String, dynamic> route = routes[0] as Map<String, dynamic>;
     final String encodedPolyline =
         ((route['overview_polyline'] as Map<String, dynamic>?)?['points'] ?? '')
             .toString();
@@ -419,10 +422,11 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (pLineCoordinates.isEmpty) {
-      if (!mounted) return;
-      associateMethods.showSnackBarMsg(
-        'Unable to draw the selected route.',
-        context,
+      _applyApproximateRouteFallback(
+        pickup: pickup,
+        dropoff: dropoff,
+        waypoints: waypoints,
+        reason: 'Route drawing failed. Using an approximate route for now.',
       );
       return;
     }
@@ -453,6 +457,63 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _applyApproximateRouteFallback({
+    required AddressModel pickup,
+    required AddressModel dropoff,
+    required List<LatLng> waypoints,
+    required String reason,
+  }) {
+    if (!mounted ||
+        pickup.latitudePosition == null ||
+        pickup.longitudePosition == null ||
+        dropoff.latitudePosition == null ||
+        dropoff.longitudePosition == null) {
+      return;
+    }
+
+    final List<LatLng> approximatePoints = <LatLng>[
+      LatLng(pickup.latitudePosition!, pickup.longitudePosition!),
+      ...waypoints,
+      LatLng(dropoff.latitudePosition!, dropoff.longitudePosition!),
+    ];
+
+    int totalMeters = 0;
+    for (int i = 0; i < approximatePoints.length - 1; i++) {
+      totalMeters += Geolocator.distanceBetween(
+        approximatePoints[i].latitude,
+        approximatePoints[i].longitude,
+        approximatePoints[i + 1].latitude,
+        approximatePoints[i + 1].longitude,
+      ).round();
+    }
+
+    // Add a small road-factor because straight-line distance is shorter than an actual road route.
+    totalMeters = (totalMeters * 1.25).round();
+
+    // Estimate time using about 30 km/h city driving speed.
+    final int totalSeconds = totalMeters == 0 ? 0 : ((totalMeters / 1000) / 30 * 3600).round();
+
+    setState(() {
+      _bookingStage = PassengerBookingStage.routeSummary;
+      _activeRideRequest = null;
+      _lastObservedRideStatus = null;
+      _confirmedEncodedPolyline = '';
+      _confirmedRouteMeters = totalMeters;
+      _confirmedRouteSeconds = totalSeconds;
+      bottomMapPadding = _currentBottomSheetHeight;
+    });
+
+    _renderConfirmedRoute(
+      pickup: pickup,
+      dropoff: dropoff,
+      waypoints: waypoints,
+      points: approximatePoints,
+      animateCamera: true,
+    );
+
+    associateMethods.showSnackBarMsg(reason, context);
+  }
+
   int _sumLegMetric(List<dynamic> routeLegs, String metricKey) {
     int total = 0;
 
@@ -481,7 +542,7 @@ class _HomePageState extends State<HomePage> {
         pickup.longitudePosition == null ||
         dropoff.latitudePosition == null ||
         dropoff.longitudePosition == null ||
-        _confirmedEncodedPolyline.isEmpty) {
+        _confirmedRouteMeters <= 0) {
       associateMethods.showSnackBarMsg(
         'Select a route before requesting a taxi.',
         context,
