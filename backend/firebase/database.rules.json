@@ -1,0 +1,98 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      ".indexOn": ["blockStatus", "defaultRole"],
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "drivers": {
+      ".indexOn": [
+        "approvalStatus",
+        "onlineStatus",
+        "serviceType",
+        "fleetId",
+        "vehicleId",
+        "email",
+        "plateNumber",
+        "updatedAt"
+      ],
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid === $uid || ((data.child('fleetId').val() !== null && root.child('fleetOwners').child(auth.uid).child(data.child('fleetId').val()).child('status').val() === 'active') || (newData.child('fleetId').val() !== null && root.child('fleetOwners').child(auth.uid).child(newData.child('fleetId').val()).child('status').val() === 'active')))"
+      }
+    },
+    "onlineDrivers": {
+      ".indexOn": [
+        "availabilityStatus",
+        "serviceType",
+        "fleetId",
+        "vehicleId",
+        "updatedAt"
+      ],
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "rideRequests": {
+      ".indexOn": [
+        "status",
+        "serviceType",
+        "passengerId",
+        "assignedDriverId",
+        "fleetId",
+        "vehicleId",
+        "updatedAt"
+      ],
+      "$requestId": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('passengerId').val() === auth.uid) || data.child('passengerId').val() === auth.uid || data.child('assignedDriverId').val() === auth.uid || (data.child('assignedDriverId').val() === '' && newData.child('assignedDriverId').val() === auth.uid) || ((data.child('fleetId').val() !== null && root.child('fleetOwners').child(auth.uid).child(data.child('fleetId').val()).child('status').val() === 'active') || (newData.child('fleetId').val() !== null && root.child('fleetOwners').child(auth.uid).child(newData.child('fleetId').val()).child('status').val() === 'active')))"
+      }
+    },
+    "fleets": {
+      ".indexOn": ["ownerId", "status", "updatedAt"],
+      "$fleetId": {
+        ".read": "auth != null && root.child('fleetOwners').child(auth.uid).child($fleetId).child('status').val() === 'active'",
+        ".write": "auth != null && ((!data.exists() && newData.child('ownerId').val() === auth.uid) || root.child('fleetOwners').child(auth.uid).child($fleetId).child('status').val() === 'active')"
+      }
+    },
+    "fleetOwners": {
+      ".indexOn": ["status"],
+      "$uid": {
+        "$fleetId": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+    "fleetVehicles": {
+      "$fleetId": {
+        ".indexOn": ["status", "serviceType", "plateNumber", "updatedAt"],
+        "$vehicleId": {
+          ".read": "auth != null && root.child('fleetOwners').child(auth.uid).child($fleetId).child('status').val() === 'active'",
+          ".write": "auth != null && root.child('fleetOwners').child(auth.uid).child($fleetId).child('status').val() === 'active'"
+        }
+      }
+    },
+    "fleetDrivers": {
+      "$fleetId": {
+        ".indexOn": ["approvalStatus", "blockStatus", "vehicleId", "updatedAt"],
+        "$driverUid": {
+          ".read": "auth != null && (auth.uid === $driverUid || root.child('fleetOwners').child(auth.uid).child($fleetId).child('status').val() === 'active')",
+          ".write": "auth != null && ((auth.uid === $driverUid && newData.child('driverId').val() === auth.uid) || root.child('fleetOwners').child(auth.uid).child($fleetId).child('status').val() === 'active')"
+        }
+      }
+    },
+    "fleetInvites": {
+      ".indexOn": ["fleetId", "vehicleId", "status", "email", "phone", "updatedAt"],
+      "$inviteCode": {
+        ".read": "auth != null",
+        ".write": "auth != null && (((newData.child('fleetId').val() !== null && root.child('fleetOwners').child(auth.uid).child(newData.child('fleetId').val()).child('status').val() === 'active') || (data.child('fleetId').val() !== null && root.child('fleetOwners').child(auth.uid).child(data.child('fleetId').val()).child('status').val() === 'active')) || (newData.child('status').val() === 'claimed' && newData.child('claimedBy').val() === auth.uid))"
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+# Melos 7 uses the root pubspec.yaml as the authoritative workspace config.
+# This file is kept as a lightweight marker for the intended TaxiFlutter layout.
+# Placeholder directories under apps/ and packages/ are not part of the active
+# workspace until they gain their own pubspec.yaml files.
+name: taxi_flutter
+
+packages:
+  - apps/*
+  - packages/*

@@ -1,0 +1,53 @@
+class DriverCredential {
+  const DriverCredential({
+    required this.driverId,
+    required this.fleetId,
+    required this.driverName,
+    required this.email,
+    required this.phone,
+    required this.status,
+    required this.createdAt,
+  });
+
+  final String driverId;
+  final String fleetId;
+  final String driverName;
+  final String email;
+  final String phone;
+  final String status;
+  final int createdAt;
+
+  bool get isActive => status == 'active';
+
+  static DriverCredential? fromSnapshotValue(String driverId, Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+
+    final Map<Object?, Object?> raw = Map<Object?, Object?>.from(value);
+    return DriverCredential(
+      driverId: _stringFrom(raw['driverId'], fallback: driverId),
+      fleetId: _stringFrom(raw['fleetId']),
+      driverName: _stringFrom(raw['driverName']),
+      email: _stringFrom(raw['email']),
+      phone: _stringFrom(raw['phone']),
+      status: _stringFrom(raw['status'], fallback: 'active'),
+      createdAt: _intFrom(raw['createdAt']),
+    );
+  }
+
+  static String _stringFrom(Object? value, {String fallback = ''}) {
+    final String parsed = (value ?? '').toString().trim();
+    if (parsed.isEmpty || parsed == 'null') {
+      return fallback;
+    }
+    return parsed;
+  }
+
+  static int _intFrom(Object? value) {
+    if (value is num) {
+      return value.toInt();
+    }
+    return int.tryParse((value ?? '').toString()) ?? 0;
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "329921756016",
+    "firebase_url": "https://soltech-clone-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "soltech-clone",
+    "storage_bucket": "soltech-clone.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:329921756016:android:9650f98d9b4554f2606db5",
+        "android_client_info": {
+          "package_name": "com.deno.soltechapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBRhgFGsnf_YvaL6-zq_hJevUrggKmuQHM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
