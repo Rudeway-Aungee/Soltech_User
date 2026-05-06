@@ -1,6 +1,8 @@
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/design_system/app_theme.dart';
+import '../../core/models/fleet_models.dart';
 import '../../core/services/driver_management_service.dart';
 
 class FleetOwnerDriverManagementPage extends StatefulWidget {
@@ -21,21 +23,56 @@ class _FleetOwnerDriverManagementPageState
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
-  final TextEditingController vehicleModelController = TextEditingController();
-  final TextEditingController vehicleColorController = TextEditingController();
-  final TextEditingController plateController = TextEditingController();
+  final TextEditingController licenseController = TextEditingController();
 
   bool isBusy = false;
+  String selectedVehicleId = '';
+  List<FleetVehicle> vehicles = <FleetVehicle>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVehicles();
+  }
 
   @override
   void dispose() {
     nameController.dispose();
     emailController.dispose();
     phoneController.dispose();
-    vehicleModelController.dispose();
-    vehicleColorController.dispose();
-    plateController.dispose();
+    licenseController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadVehicles() async {
+    final DatabaseEvent event = await FirebaseDatabase.instance
+        .ref('fleetVehicles/${widget.fleetId}')
+        .once();
+
+    final List<FleetVehicle> loaded = <FleetVehicle>[];
+    if (event.snapshot.value is Map) {
+      final Map<Object?, Object?> raw = Map<Object?, Object?>.from(
+        event.snapshot.value as Map,
+      );
+      for (final MapEntry<Object?, Object?> entry in raw.entries) {
+        final FleetVehicle? vehicle = FleetVehicle.fromSnapshotValue(
+          entry.key.toString(),
+          widget.fleetId,
+          entry.value,
+        );
+        if (vehicle != null && vehicle.status != 'archived') {
+          loaded.add(vehicle);
+        }
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      vehicles = loaded;
+      if (selectedVehicleId.isEmpty && vehicles.isNotEmpty) {
+        selectedVehicleId = vehicles.first.id;
+      }
+    });
   }
 
   Future<void> _addDriver() async {
@@ -48,15 +85,27 @@ class _FleetOwnerDriverManagementPageState
     });
 
     try {
+      FleetVehicle? vehicle;
+      for (final FleetVehicle item in vehicles) {
+        if (item.id == selectedVehicleId) {
+          vehicle = item;
+          break;
+        }
+      }
+
       final Map<String, String> result =
           await DriverManagementService().addDriverToFleet(
         fleetId: widget.fleetId,
         driverName: nameController.text.trim(),
         email: emailController.text.trim(),
         phone: phoneController.text.trim(),
-        vehicleModel: vehicleModelController.text.trim(),
-        vehicleColor: vehicleColorController.text.trim(),
-        plateNumber: plateController.text.trim(),
+        licenseNumber: licenseController.text.trim(),
+        vehicleId: vehicle?.id ?? '',
+        vehicleModel: vehicle == null
+            ? ''
+            : '${vehicle.make} ${vehicle.model}'.trim(),
+        vehicleColor: vehicle?.color ?? '',
+        plateNumber: vehicle?.plateNumber ?? '',
       );
 
       if (!mounted) {
@@ -89,16 +138,16 @@ class _FleetOwnerDriverManagementPageState
       _showMessage('Phone number must be at least 7 characters.');
       return false;
     }
-    if (vehicleModelController.text.trim().isEmpty) {
-      _showMessage('Vehicle model is required.');
+    if (licenseController.text.trim().isEmpty) {
+      _showMessage('Driver licence number is required.');
       return false;
     }
-    if (vehicleColorController.text.trim().isEmpty) {
-      _showMessage('Vehicle color is required.');
+    if (vehicles.isEmpty) {
+      _showMessage('Add at least one vehicle before creating a driver.');
       return false;
     }
-    if (plateController.text.trim().length < 4) {
-      _showMessage('Plate number is required.');
+    if (selectedVehicleId.isEmpty) {
+      _showMessage('Select a vehicle for this driver.');
       return false;
     }
     return true;
@@ -108,9 +157,7 @@ class _FleetOwnerDriverManagementPageState
     nameController.clear();
     emailController.clear();
     phoneController.clear();
-    vehicleModelController.clear();
-    vehicleColorController.clear();
-    plateController.clear();
+    licenseController.clear();
   }
 
   void _showMessage(String message) {
@@ -129,41 +176,45 @@ class _FleetOwnerDriverManagementPageState
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Driver Added Successfully'),
+          title: const Text('Driver Account Created'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Driver has been added to your fleet.'),
+              const Text(
+                'The driver has been registered under your fleet. Give these login details to the driver.',
+              ),
               const SizedBox(height: 16),
               const Text(
-                'Driver ID:',
+                'Driver ID',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               SelectableText(
                 credentials['driverId'] ?? '',
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   fontFamily: 'monospace',
                   color: SoltechColors.green,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 12),
               const Text(
-                'Temporary Password:',
+                'Temporary Password',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               SelectableText(
                 credentials['password'] ?? '',
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   fontFamily: 'monospace',
                   color: SoltechColors.green,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 12),
               const Text(
-                'Share these credentials with the driver. They must change the password on first login.',
+                'Drivers cannot register themselves. They must use this Driver ID and password from Fleet Control.',
                 style: TextStyle(
                   fontSize: 12,
                   color: SoltechColors.muted,
@@ -187,9 +238,7 @@ class _FleetOwnerDriverManagementPageState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: SoltechColors.canvas,
-      appBar: AppBar(
-        title: const Text('Add Driver'),
-      ),
+      appBar: AppBar(title: const Text('Create Driver Account')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),
@@ -198,7 +247,7 @@ class _FleetOwnerDriverManagementPageState
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(color: SoltechColors.line),
               ),
               child: Row(
@@ -207,7 +256,7 @@ class _FleetOwnerDriverManagementPageState
                     radius: 28,
                     backgroundColor: SoltechColors.green.withValues(alpha: 0.12),
                     child: const Icon(
-                      Icons.local_taxi_outlined,
+                      Icons.badge_outlined,
                       color: SoltechColors.green,
                       size: 28,
                     ),
@@ -218,7 +267,7 @@ class _FleetOwnerDriverManagementPageState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Add Driver',
+                          'Register Driver',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w900,
@@ -227,7 +276,7 @@ class _FleetOwnerDriverManagementPageState
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Add a new driver to your fleet.',
+                          'Create a driver login and assign the driver to one of your approved vehicles.',
                           style: TextStyle(color: SoltechColors.muted),
                         ),
                       ],
@@ -236,8 +285,10 @@ class _FleetOwnerDriverManagementPageState
                 ],
               ),
             ),
-            const SizedBox(height: 28),
-            _field(nameController, 'Driver Name', Icons.person_outline),
+            const SizedBox(height: 22),
+            _infoCard(),
+            const SizedBox(height: 22),
+            _field(nameController, 'Driver Full Name', Icons.person_outline),
             const SizedBox(height: 14),
             _field(
               emailController,
@@ -254,39 +305,79 @@ class _FleetOwnerDriverManagementPageState
             ),
             const SizedBox(height: 14),
             _field(
-              vehicleModelController,
-              'Vehicle Model',
-              Icons.directions_car_outlined,
+              licenseController,
+              'Driver Licence Number',
+              Icons.credit_card_outlined,
             ),
             const SizedBox(height: 14),
-            _field(
-              vehicleColorController,
-              'Vehicle Color',
-              Icons.palette_outlined,
-            ),
-            const SizedBox(height: 14),
-            _field(
-              plateController,
-              'Plate Number',
-              Icons.badge_outlined,
-            ),
+            _vehicleDropdown(),
             const SizedBox(height: 26),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: isBusy ? null : _addDriver,
-              child: isBusy
+              icon: isBusy
                   ? const SizedBox(
-                      width: 22,
-                      height: 22,
+                      width: 20,
+                      height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Add Driver'),
+                  : const Icon(Icons.person_add_alt_1),
+              label: Text(isBusy ? 'Creating Driver...' : 'Create Driver Account'),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _infoCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: SoltechColors.blue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: SoltechColors.blue.withValues(alpha: 0.18)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, color: SoltechColors.blue),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Drivers do not self-register. Fleet Control creates driver accounts and gives each driver a Driver ID and temporary password.',
+              style: TextStyle(color: SoltechColors.ink, height: 1.35),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _vehicleDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: selectedVehicleId.isEmpty ? null : selectedVehicleId,
+      decoration: const InputDecoration(
+        prefixIcon: Icon(Icons.local_taxi_outlined),
+        labelText: 'Assign Vehicle',
+      ),
+      items: vehicles
+          .map(
+            (FleetVehicle vehicle) => DropdownMenuItem<String>(
+              value: vehicle.id,
+              child: Text('${vehicle.plateNumber} - ${vehicle.displayName}'),
+            ),
+          )
+          .toList(),
+      onChanged: isBusy
+          ? null
+          : (String? value) {
+              setState(() {
+                selectedVehicleId = value ?? '';
+              });
+            },
     );
   }
 
@@ -299,9 +390,9 @@ class _FleetOwnerDriverManagementPageState
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      textCapitalization: label.contains('Plate')
+      textCapitalization: label.contains('Licence')
           ? TextCapitalization.characters
-          : TextCapitalization.none,
+          : TextCapitalization.words,
       decoration: InputDecoration(prefixIcon: Icon(icon), labelText: label),
     );
   }

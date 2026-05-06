@@ -280,17 +280,40 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
         'id': fleetId,
         'name': fleetName,
         'ownerId': user.uid,
+        'ownerName': ownerName,
         'phone': phone,
         'email': email,
-        'status': 'active',
+        'status': 'pending',
+        'approvalStatus': 'pending',
+        'rejectionReason': '',
+        'documents': <String, dynamic>{
+          'owner_id': <String, dynamic>{'status': 'submitted', 'label': 'Owner ID'},
+          'business_registration': <String, dynamic>{'status': 'submitted', 'label': 'Business Registration'},
+          'vehicle_registration': <String, dynamic>{'status': 'submitted', 'label': 'Vehicle Registration'},
+          'bank_details': <String, dynamic>{'status': 'submitted', 'label': 'Bank Details'},
+        },
         'createdAt': now,
         'updatedAt': now,
+      });
+
+      await _database.ref('fleetApplications/$fleetId').set(<String, dynamic>{
+        'fleetId': fleetId,
+        'ownerId': user.uid,
+        'ownerName': ownerName,
+        'fleetName': fleetName,
+        'phone': phone,
+        'email': email,
+        'status': 'pending',
+        'submittedAt': now,
+        'reviewedAt': null,
+        'reviewedBy': '',
+        'rejectionReason': '',
       });
 
       await _database.ref('fleetOwners/${user.uid}/$fleetId').set(<String, dynamic>{
         'fleetId': fleetId,
         'role': 'owner',
-        'status': 'active',
+        'status': 'pending',
         'createdAt': now,
         'updatedAt': now,
       });
@@ -312,7 +335,8 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
     }
 
     if (session.status != AppSessionStatus.ready &&
-        session.status != AppSessionStatus.driverPending) {
+        session.status != AppSessionStatus.driverPending &&
+        session.status != AppSessionStatus.fleetPending) {
       final String error = session.message ?? 'This account cannot use this mode.';
       await _auth.signOut();
       await session.signOut();
@@ -648,6 +672,13 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
           textAlign: TextAlign.center,
           style: _titleStyle,
         ),
+        const SizedBox(height: 8),
+        if (_fleetRegister)
+          const Text(
+            'Fleet owners submit their details first. Super Admin approval is required before vehicles and drivers can be managed.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: SoltechColors.muted, fontSize: 12),
+          ),
         const SizedBox(height: 16),
         if (_fleetRegister) ...[
           _field(

@@ -12,6 +12,7 @@ enum AppSessionStatus {
   signedOut,
   ready,
   driverPending,
+  fleetPending,
   unauthorized,
 }
 
@@ -29,6 +30,7 @@ class AppSession extends ChangeNotifier {
   String? activeFleetId;
   String? message;
   String? driverApprovalStatus;
+  String? fleetApprovalStatus;
 
   bool get isLoading => status == AppSessionStatus.loading;
   bool get isSignedOut => _auth.currentUser == null;
@@ -107,6 +109,7 @@ class AppSession extends ChangeNotifier {
     availableRoles = <AppRole>{};
     activeFleetId = null;
     driverApprovalStatus = null;
+    fleetApprovalStatus = null;
     status = AppSessionStatus.signedOut;
     notifyListeners();
   }
@@ -115,6 +118,7 @@ class AppSession extends ChangeNotifier {
     final User? user = _auth.currentUser;
     message = null;
     driverApprovalStatus = null;
+    fleetApprovalStatus = null;
     activeFleetId = null;
     roleSession = null;
 
@@ -216,7 +220,10 @@ class AppSession extends ChangeNotifier {
         final Map<Object?, Object?> membership = Map<Object?, Object?>.from(
           entry.value as Map,
         );
-        if ((membership['status'] ?? 'active').toString() == 'active') {
+        final String membershipStatus = (membership['status'] ?? 'pending').toString();
+        if (membershipStatus == 'active' ||
+            membershipStatus == 'pending' ||
+            membershipStatus == 'rejected') {
           roles.add(AppRole.fleetOwner);
           activeFleetId ??= entry.key.toString();
         }
@@ -282,6 +289,9 @@ class AppSession extends ChangeNotifier {
     final Map<Object?, Object?> ownerMap = Map<Object?, Object?>.from(
       event.snapshot.value as Map,
     );
+    String? firstFleetId;
+    String firstStatus = 'pending';
+
     for (final MapEntry<Object?, Object?> entry in ownerMap.entries) {
       if (entry.value is! Map) {
         continue;
@@ -290,14 +300,28 @@ class AppSession extends ChangeNotifier {
       final Map<Object?, Object?> membership = Map<Object?, Object?>.from(
         entry.value as Map,
       );
-      if ((membership['status'] ?? 'active').toString() == 'active') {
+      final String membershipStatus = (membership['status'] ?? 'pending').toString();
+      firstFleetId ??= entry.key.toString();
+      firstStatus = membershipStatus;
+
+      if (membershipStatus == 'active') {
         activeFleetId = entry.key.toString();
         return true;
       }
     }
 
+    if (firstFleetId != null) {
+      activeFleetId = firstFleetId;
+      fleetApprovalStatus = firstStatus;
+      status = AppSessionStatus.fleetPending;
+      message = firstStatus == 'rejected'
+          ? 'Your Fleet Control application was rejected. Please update your documents and resubmit.'
+          : 'Your Fleet Control application is waiting for Super Admin approval.';
+      return false;
+    }
+
     status = AppSessionStatus.unauthorized;
-    message = 'No active fleet was found for this owner account.';
+    message = 'No fleet was found for this owner account.';
     return false;
   }
 

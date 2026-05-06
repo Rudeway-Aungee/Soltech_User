@@ -322,7 +322,7 @@ class _HomePageState extends State<HomePage> {
           ),
           infoWindow: InfoWindow(
             title: 'Taxi Request',
-            snippet: '\$${ride.fareEstimate.toStringAsFixed(2)}',
+            snippet: 'K${ride.fareEstimate.toStringAsFixed(2)}',
           ),
         ),
       );
@@ -930,12 +930,12 @@ class _HomePageState extends State<HomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'You are offline',
+            'You are Offline',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           const Text(
-            'Go online to receive nearby taxi requests and publish your live location.',
+            'Go online to receive ride requests assigned to approved drivers in your fleet.',
             style: TextStyle(color: Colors.grey, fontSize: 14),
           ),
           const SizedBox(height: 22),
@@ -974,12 +974,12 @@ class _HomePageState extends State<HomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Waiting for requests',
+            'Driver Dashboard',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           Text(
-            '${_driverProfile?.name ?? 'Driver'}, your profile is online. New taxi requests will appear here automatically.',
+            '${_driverProfile?.name ?? 'Driver'}, you are online. New ride requests will appear here automatically.',
             style: TextStyle(color: Colors.grey, fontSize: 14),
           ),
           const SizedBox(height: 18),
@@ -1001,12 +1001,12 @@ class _HomePageState extends State<HomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${_openRideRequests.length} open request${_openRideRequests.length == 1 ? '' : 's'}',
+            '${_openRideRequests.length} ride request${_openRideRequests.length == 1 ? '' : 's'}',
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           const Text(
-            'First accepted ride wins. Requests are sorted by your distance to the pickup point.',
+            'Accept a ride request to navigate to the passenger pickup location.',
             style: TextStyle(color: Colors.grey, fontSize: 14),
           ),
           const SizedBox(height: 18),
@@ -1035,7 +1035,7 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           Expanded(
                             child: Text(
-                              '\$${ride.fareEstimate.toStringAsFixed(2)}',
+                              'K${ride.fareEstimate.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w800,
@@ -1166,7 +1166,7 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: _summaryPill(
                   icon: Icons.payments_outlined,
-                  label: '\$${ride.fareEstimate.toStringAsFixed(2)}',
+                  label: 'K${ride.fareEstimate.toStringAsFixed(2)}',
                 ),
               ),
               const SizedBox(width: 10),

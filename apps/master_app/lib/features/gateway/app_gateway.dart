@@ -8,6 +8,7 @@ import '../../core/design_system/app_theme.dart';
 import '../../core/models/app_role.dart';
 import '../../core/session/app_session.dart';
 import '../fleet_owner/fleet_owner_home_page.dart';
+import '../fleet_owner/fleet_owner_pending_approval_page.dart';
 import 'welcome_role_page.dart';
 
 class AppGateway extends StatelessWidget {
@@ -28,6 +29,12 @@ class AppGateway extends StatelessWidget {
     if (session.status == AppSessionStatus.driverPending) {
       return PendingApprovalPage(
         initialStatus: session.driverApprovalStatus ?? 'pending',
+      );
+    }
+
+    if (session.status == AppSessionStatus.fleetPending) {
+      return FleetOwnerPendingApprovalPage(
+        initialStatus: session.fleetApprovalStatus ?? 'pending',
       );
     }
 

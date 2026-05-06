@@ -1,6 +1,3 @@
-import 'dart:math';
-
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +7,8 @@ import '../../core/models/fleet_models.dart';
 import '../../core/session/app_session.dart';
 import '../../core/widgets/role_switcher_button.dart';
 import '../../model/driver_profile_model.dart';
+import '../../model/ride_request_model.dart';
+import 'fleet_owner_driver_management_page.dart';
 
 class FleetOwnerHomePage extends StatefulWidget {
   const FleetOwnerHomePage({super.key});
@@ -33,7 +32,12 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
     }
 
     final List<Widget> pages = <Widget>[
-      _DashboardTab(fleetId: fleetId),
+      _DashboardTab(
+        fleetId: fleetId,
+        onAddVehicle: () => _showVehicleDialog(fleetId),
+        onCreateDriver: () => _openCreateDriver(fleetId),
+        onViewLedger: () => setState(() => _selectedIndex = 4),
+      ),
       _VehiclesTab(
         fleetId: fleetId,
         onAddVehicle: () => _showVehicleDialog(fleetId),
@@ -41,17 +45,15 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
             _showVehicleDialog(fleetId, vehicle: vehicle),
         onArchiveVehicle: _archiveVehicle,
       ),
-      _InvitesTab(
-        fleetId: fleetId,
-        onCreateInvite: () => _showInviteDialog(fleetId),
-        onRevokeInvite: _revokeInvite,
-      ),
       _DriversTab(
         fleetId: fleetId,
-        onApproveDriver: _approveDriver,
+        onCreateDriver: () => _openCreateDriver(fleetId),
         onBlockDriver: _blockDriver,
+        onActivateDriver: _activateDriver,
         onAssignVehicle: _showAssignVehicleDialog,
       ),
+      _TripsTab(fleetId: fleetId),
+      _LedgerTab(fleetId: fleetId),
       _FleetAccountTab(
         fleetId: fleetId,
         onEditFleet: () => _showFleetDialog(fleetId),
@@ -61,9 +63,10 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Fleet Owner',
-          style: TextStyle(fontWeight: FontWeight.w800),
+          'Fleet Control',
+          style: TextStyle(fontWeight: FontWeight.w900),
         ),
+        actions: const [RoleSwitcherButton()],
       ),
       body: IndexedStack(index: _selectedIndex, children: pages),
       bottomNavigationBar: BottomNavigationBar(
@@ -71,53 +74,33 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: SoltechColors.green,
         unselectedItemColor: Colors.grey,
-        onTap: (int index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+        onTap: (int index) => setState(() => _selectedIndex = index),
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_outlined),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.directions_car_outlined),
-            label: 'Vehicles',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.confirmation_number_outlined),
-            label: 'Invites',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.group_outlined),
-            label: 'Drivers',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.business_outlined),
-            label: 'Fleet',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
+          BottomNavigationBarItem(icon: Icon(Icons.local_taxi_outlined), label: 'Vehicles'),
+          BottomNavigationBarItem(icon: Icon(Icons.group_outlined), label: 'Drivers'),
+          BottomNavigationBarItem(icon: Icon(Icons.route_outlined), label: 'Trips'),
+          BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), label: 'Ledger'),
+          BottomNavigationBarItem(icon: Icon(Icons.business_outlined), label: 'Account'),
         ],
       ),
     );
   }
 
-  Future<void> _showVehicleDialog(
-    String fleetId, {
-    FleetVehicle? vehicle,
-  }) async {
-    final TextEditingController makeController = TextEditingController(
-      text: vehicle?.make ?? '',
+  Future<void> _openCreateDriver(String fleetId) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => FleetOwnerDriverManagementPage(fleetId: fleetId),
+      ),
     );
-    final TextEditingController modelController = TextEditingController(
-      text: vehicle?.model ?? '',
-    );
-    final TextEditingController colorController = TextEditingController(
-      text: vehicle?.color ?? '',
-    );
-    final TextEditingController plateController = TextEditingController(
-      text: vehicle?.plateNumber ?? '',
-    );
+  }
+
+  Future<void> _showVehicleDialog(String fleetId, {FleetVehicle? vehicle}) async {
+    final TextEditingController makeController = TextEditingController(text: vehicle?.make ?? '');
+    final TextEditingController modelController = TextEditingController(text: vehicle?.model ?? '');
+    final TextEditingController colorController = TextEditingController(text: vehicle?.color ?? '');
+    final TextEditingController plateController = TextEditingController(text: vehicle?.plateNumber ?? '');
 
     await showDialog<void>(
       context: context,
@@ -139,34 +122,28 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
-                final int now = DateTime.now().millisecondsSinceEpoch;
-                final String vehicleId =
-                    vehicle?.id ?? _db.child('fleetVehicles/$fleetId').push().key!;
-                await _db.child('fleetVehicles/$fleetId/$vehicleId').update(
-                  <String, dynamic>{
-                    'id': vehicleId,
-                    'fleetId': fleetId,
-                    'make': makeController.text.trim(),
-                    'model': modelController.text.trim(),
-                    'color': colorController.text.trim(),
-                    'plateNumber': plateController.text.trim().toUpperCase(),
-                    'serviceType': 'taxi',
-                    'status': vehicle?.status ?? 'active',
-                    'createdAt': vehicle?.createdAt == 0
-                        ? now
-                        : vehicle?.createdAt ?? now,
-                    'updatedAt': now,
-                  },
-                );
-                if (dialogContext.mounted) {
-                  Navigator.pop(dialogContext);
+                if (plateController.text.trim().length < 3) {
+                  _showMessage('Plate number is required.');
+                  return;
                 }
+                final int now = DateTime.now().millisecondsSinceEpoch;
+                final String vehicleId = vehicle?.id ?? _db.child('fleetVehicles/$fleetId').push().key!;
+                await _db.child('fleetVehicles/$fleetId/$vehicleId').update(<String, dynamic>{
+                  'id': vehicleId,
+                  'fleetId': fleetId,
+                  'make': makeController.text.trim(),
+                  'model': modelController.text.trim(),
+                  'color': colorController.text.trim(),
+                  'plateNumber': plateController.text.trim().toUpperCase(),
+                  'serviceType': 'taxi',
+                  'status': vehicle?.status ?? 'active',
+                  'createdAt': vehicle?.createdAt == 0 ? now : vehicle?.createdAt ?? now,
+                  'updatedAt': now,
+                });
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
               child: const Text('Save'),
             ),
@@ -182,133 +159,18 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
   }
 
   Future<void> _archiveVehicle(FleetVehicle vehicle) async {
-    await _db.child('fleetVehicles/${vehicle.fleetId}/${vehicle.id}').update(
-      <String, dynamic>{
-        'status': 'archived',
-        'updatedAt': DateTime.now().millisecondsSinceEpoch,
-      },
-    );
-  }
-
-  Future<void> _showInviteDialog(String fleetId) async {
-    final TextEditingController emailController = TextEditingController();
-    final TextEditingController phoneController = TextEditingController();
-    String selectedVehicleId = '';
-    final List<FleetVehicle> vehicles = await _loadVehicles(fleetId);
-
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return AlertDialog(
-              title: const Text('Create Driver Invite'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _dialogField(emailController, 'Driver Email'),
-                    const SizedBox(height: 12),
-                    _dialogField(phoneController, 'Driver Phone'),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedVehicleId.isEmpty
-                          ? null
-                          : selectedVehicleId,
-                      decoration: const InputDecoration(
-                        labelText: 'Assign Vehicle (optional)',
-                      ),
-                      items: vehicles
-                          .where((FleetVehicle vehicle) {
-                            return vehicle.status != 'archived';
-                          })
-                          .map(
-                            (FleetVehicle vehicle) =>
-                                DropdownMenuItem<String>(
-                                  value: vehicle.id,
-                                  child: Text(
-                                    '${vehicle.plateNumber} - ${vehicle.displayName}',
-                                  ),
-                                ),
-                          )
-                          .toList(),
-                      onChanged: (String? value) {
-                        setDialogState(() {
-                          selectedVehicleId = value ?? '';
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final String code = _generateInviteCode();
-                    final int now = DateTime.now().millisecondsSinceEpoch;
-                    await _db.child('fleetInvites/$code').set(<String, dynamic>{
-                      'code': code,
-                      'fleetId': fleetId,
-                      'vehicleId': selectedVehicleId,
-                      'email': emailController.text.trim(),
-                      'phone': phoneController.text.trim(),
-                      'status': 'pending',
-                      'claimedBy': '',
-                      'createdAt': now,
-                      'updatedAt': now,
-                    });
-                    if (dialogContext.mounted) {
-                      Navigator.pop(dialogContext);
-                    }
-                    if (mounted) {
-                      _showMessage('Invite created: $code');
-                    }
-                  },
-                  child: const Text('Create'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    emailController.dispose();
-    phoneController.dispose();
-  }
-
-  Future<void> _revokeInvite(FleetInvite invite) async {
-    await _db.child('fleetInvites/${invite.code}').update(<String, dynamic>{
-      'status': 'revoked',
+    await _db.child('fleetVehicles/${vehicle.fleetId}/${vehicle.id}').update(<String, dynamic>{
+      'status': 'archived',
       'updatedAt': DateTime.now().millisecondsSinceEpoch,
-    });
-  }
-
-  Future<void> _approveDriver(String fleetId, String driverId) async {
-    final int now = DateTime.now().millisecondsSinceEpoch;
-    await _db.child('fleetDrivers/$fleetId/$driverId').update(
-      <String, dynamic>{
-        'approvalStatus': 'approved',
-        'blockStatus': 'no',
-        'updatedAt': now,
-      },
-    );
-    await _db.child('drivers/$driverId').update(<String, dynamic>{
-      'approvalStatus': 'approved',
-      'blockStatus': 'no',
-      'updatedAt': now,
     });
   }
 
   Future<void> _blockDriver(String fleetId, String driverId) async {
     final int now = DateTime.now().millisecondsSinceEpoch;
-    await _db.child('fleetDrivers/$fleetId/$driverId').update(
-      <String, dynamic>{'blockStatus': 'yes', 'updatedAt': now},
-    );
+    await _db.child('fleetDrivers/$fleetId/$driverId').update(<String, dynamic>{
+      'blockStatus': 'yes',
+      'updatedAt': now,
+    });
     await _db.child('drivers/$driverId').update(<String, dynamic>{
       'blockStatus': 'yes',
       'onlineStatus': 'offline',
@@ -317,11 +179,21 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
     await _db.child('onlineDrivers/$driverId').remove();
   }
 
-  Future<void> _showAssignVehicleDialog(
-    String fleetId,
-    String driverId,
-    String currentVehicleId,
-  ) async {
+  Future<void> _activateDriver(String fleetId, String driverId) async {
+    final int now = DateTime.now().millisecondsSinceEpoch;
+    await _db.child('fleetDrivers/$fleetId/$driverId').update(<String, dynamic>{
+      'blockStatus': 'no',
+      'approvalStatus': 'approved',
+      'updatedAt': now,
+    });
+    await _db.child('drivers/$driverId').update(<String, dynamic>{
+      'blockStatus': 'no',
+      'approvalStatus': 'approved',
+      'updatedAt': now,
+    });
+  }
+
+  Future<void> _showAssignVehicleDialog(String fleetId, String driverId, String currentVehicleId) async {
     final List<FleetVehicle> vehicles = await _loadVehicles(fleetId);
     String selectedVehicleId = currentVehicleId;
 
@@ -331,52 +203,43 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
-              title: const Text('Assign Vehicle'),
+              title: const Text('Assign Driver to Vehicle'),
               content: DropdownButtonFormField<String>(
                 initialValue: selectedVehicleId.isEmpty ? null : selectedVehicleId,
                 decoration: const InputDecoration(labelText: 'Vehicle'),
                 items: vehicles
-                    .where((FleetVehicle vehicle) {
-                      return vehicle.status != 'archived';
-                    })
-                    .map(
-                      (FleetVehicle vehicle) => DropdownMenuItem<String>(
-                        value: vehicle.id,
-                        child: Text(
-                          '${vehicle.plateNumber} - ${vehicle.displayName}',
-                        ),
-                      ),
-                    )
+                    .where((FleetVehicle vehicle) => vehicle.status != 'archived')
+                    .map((FleetVehicle vehicle) => DropdownMenuItem<String>(
+                          value: vehicle.id,
+                          child: Text('${vehicle.plateNumber} - ${vehicle.displayName}'),
+                        ))
                     .toList(),
-                onChanged: (String? value) {
-                  setDialogState(() {
-                    selectedVehicleId = value ?? '';
-                  });
-                },
+                onChanged: (String? value) => setDialogState(() => selectedVehicleId = value ?? ''),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
-                ),
+                TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
                 ElevatedButton(
                   onPressed: () async {
-                    final int now = DateTime.now().millisecondsSinceEpoch;
-                    await _db.child('fleetDrivers/$fleetId/$driverId').update(
-                      <String, dynamic>{
-                        'vehicleId': selectedVehicleId,
-                        'updatedAt': now,
-                      },
-                    );
-                    await _db.child('drivers/$driverId').update(
-                      <String, dynamic>{
-                        'vehicleId': selectedVehicleId,
-                        'updatedAt': now,
-                      },
-                    );
-                    if (dialogContext.mounted) {
-                      Navigator.pop(dialogContext);
+                    FleetVehicle? selectedVehicle;
+                    for (final FleetVehicle item in vehicles) {
+                      if (item.id == selectedVehicleId) {
+                        selectedVehicle = item;
+                        break;
+                      }
                     }
+                    final int now = DateTime.now().millisecondsSinceEpoch;
+                    await _db.child('fleetDrivers/$fleetId/$driverId').update(<String, dynamic>{
+                      'vehicleId': selectedVehicleId,
+                      'updatedAt': now,
+                    });
+                    await _db.child('drivers/$driverId').update(<String, dynamic>{
+                      'vehicleId': selectedVehicleId,
+                      if (selectedVehicle != null) 'vehicleModel': '${selectedVehicle.make} ${selectedVehicle.model}'.trim(),
+                      if (selectedVehicle != null) 'vehicleColor': selectedVehicle.color,
+                      if (selectedVehicle != null) 'plateNumber': selectedVehicle.plateNumber,
+                      'updatedAt': now,
+                    });
+                    if (dialogContext.mounted) Navigator.pop(dialogContext);
                   },
                   child: const Text('Assign'),
                 ),
@@ -390,25 +253,16 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
 
   Future<void> _showFleetDialog(String fleetId) async {
     final DatabaseEvent event = await _db.child('fleets/$fleetId').once();
-    final FleetProfile? fleet = FleetProfile.fromSnapshotValue(
-      fleetId,
-      event.snapshot.value,
-    );
-    final TextEditingController nameController = TextEditingController(
-      text: fleet?.name ?? '',
-    );
-    final TextEditingController phoneController = TextEditingController(
-      text: fleet?.phone ?? '',
-    );
-    final TextEditingController emailController = TextEditingController(
-      text: fleet?.email ?? '',
-    );
+    final FleetProfile? fleet = FleetProfile.fromSnapshotValue(fleetId, event.snapshot.value);
+    final TextEditingController nameController = TextEditingController(text: fleet?.name ?? '');
+    final TextEditingController phoneController = TextEditingController(text: fleet?.phone ?? '');
+    final TextEditingController emailController = TextEditingController(text: fleet?.email ?? '');
 
     await showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Edit Fleet'),
+          title: const Text('Edit Fleet Profile'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -422,10 +276,7 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
                 await _db.child('fleets/$fleetId').update(<String, dynamic>{
@@ -434,9 +285,7 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
                   'email': emailController.text.trim(),
                   'updatedAt': DateTime.now().millisecondsSinceEpoch,
                 });
-                if (dialogContext.mounted) {
-                  Navigator.pop(dialogContext);
-                }
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
               child: const Text('Save'),
             ),
@@ -454,26 +303,14 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
     final DatabaseEvent event = await _db.child('fleetVehicles/$fleetId').once();
     return _parseChildren<FleetVehicle>(
       event.snapshot.value,
-      (String id, Object? value) =>
-          FleetVehicle.fromSnapshotValue(id, fleetId, value),
+      (String id, Object? value) => FleetVehicle.fromSnapshotValue(id, fleetId, value),
     );
-  }
-
-  String _generateInviteCode() {
-    final String time = DateTime.now()
-        .millisecondsSinceEpoch
-        .toRadixString(36)
-        .toUpperCase();
-    final String suffix = Random().nextInt(9999).toString().padLeft(4, '0');
-    return 'FLT-$time-$suffix';
   }
 
   Widget _dialogField(TextEditingController controller, String label) {
     return TextField(
       controller: controller,
-      textCapitalization: label.contains('Plate')
-          ? TextCapitalization.characters
-          : TextCapitalization.words,
+      textCapitalization: label.contains('Plate') ? TextCapitalization.characters : TextCapitalization.words,
       decoration: InputDecoration(labelText: label),
     );
   }
@@ -484,9 +321,17 @@ class _FleetOwnerHomePageState extends State<FleetOwnerHomePage> {
 }
 
 class _DashboardTab extends StatelessWidget {
-  const _DashboardTab({required this.fleetId});
+  const _DashboardTab({
+    required this.fleetId,
+    required this.onAddVehicle,
+    required this.onCreateDriver,
+    required this.onViewLedger,
+  });
 
   final String fleetId;
+  final VoidCallback onAddVehicle;
+  final VoidCallback onCreateDriver;
+  final VoidCallback onViewLedger;
 
   DatabaseReference get _db => FirebaseDatabase.instance.ref();
 
@@ -495,41 +340,43 @@ class _DashboardTab extends StatelessWidget {
     return FutureBuilder<_FleetSummary>(
       future: _loadSummary(),
       builder: (BuildContext context, AsyncSnapshot<_FleetSummary> snapshot) {
+        final _FleetSummary summary = snapshot.data ?? const _FleetSummary();
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final _FleetSummary summary = snapshot.data ?? const _FleetSummary();
         return RefreshIndicator(
-          onRefresh: () async {
-            await _loadSummary();
-          },
+          onRefresh: () async { await _loadSummary(); },
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
               StreamBuilder<DatabaseEvent>(
                 stream: _db.child('fleets/$fleetId').onValue,
-                builder: (BuildContext context,
-                    AsyncSnapshot<DatabaseEvent> fleetSnapshot) {
-                  final FleetProfile? fleet = FleetProfile.fromSnapshotValue(
-                    fleetId,
-                    fleetSnapshot.data?.snapshot.value,
-                  );
+                builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> fleetSnapshot) {
+                  final FleetProfile? fleet = FleetProfile.fromSnapshotValue(fleetId, fleetSnapshot.data?.snapshot.value);
                   return _Panel(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          fleet?.name ?? 'Fleet Dashboard',
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Live status, trips, and earnings for your taxi fleet.',
-                          style: TextStyle(color: SoltechColors.muted),
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 28,
+                              backgroundColor: SoltechColors.green.withValues(alpha: 0.12),
+                              child: const Icon(Icons.business, color: SoltechColors.green),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(fleet?.name ?? 'Fleet Control Dashboard', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                                  const SizedBox(height: 4),
+                                  const Text('Vehicles, drivers, trips, distance, earnings, and cash collection records.', style: TextStyle(color: SoltechColors.muted)),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -541,34 +388,14 @@ class _DashboardTab extends StatelessWidget {
                 crossAxisCount: 2,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 1.25,
+                childAspectRatio: 1.18,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
                 children: [
-                  _MetricCard(
-                    label: 'Vehicles',
-                    value: summary.vehicleCount.toString(),
-                    icon: Icons.directions_car,
-                    color: SoltechColors.blue,
-                  ),
-                  _MetricCard(
-                    label: 'Drivers',
-                    value: summary.driverCount.toString(),
-                    icon: Icons.group,
-                    color: SoltechColors.green,
-                  ),
-                  _MetricCard(
-                    label: 'Online',
-                    value: summary.onlineDriverCount.toString(),
-                    icon: Icons.radio_button_checked,
-                    color: SoltechColors.amber,
-                  ),
-                  _MetricCard(
-                    label: 'Earnings',
-                    value: '\$${summary.completedEarnings.toStringAsFixed(2)}',
-                    icon: Icons.payments_outlined,
-                    color: SoltechColors.ink,
-                  ),
+                  _MetricCard(label: 'Active Vehicles', value: summary.vehicleCount.toString(), icon: Icons.local_taxi, color: SoltechColors.blue),
+                  _MetricCard(label: 'Online Drivers', value: summary.onlineDriverCount.toString(), icon: Icons.radio_button_checked, color: SoltechColors.green),
+                  _MetricCard(label: 'Trips Today', value: summary.tripCount.toString(), icon: Icons.route, color: SoltechColors.amber),
+                  _MetricCard(label: 'Earnings', value: 'K${summary.completedEarnings.toStringAsFixed(2)}', icon: Icons.payments_outlined, color: SoltechColors.ink),
                 ],
               ),
               const SizedBox(height: 14),
@@ -576,17 +403,44 @@ class _DashboardTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Active Trips',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    const Text('Quick Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _ActionButton(icon: Icons.add_road, label: 'Add Vehicle', onTap: onAddVehicle)),
+                        const SizedBox(width: 10),
+                        Expanded(child: _ActionButton(icon: Icons.person_add_alt_1, label: 'Create Driver', onTap: onCreateDriver)),
+                      ],
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      '${summary.activeTripCount} active trip${summary.activeTripCount == 1 ? '' : 's'} right now.',
-                      style: const TextStyle(color: SoltechColors.muted),
+                    _ActionButton(icon: Icons.account_balance_wallet_outlined, label: 'View Cash / Digital Ledger', onTap: onViewLedger, fullWidth: true),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              _Panel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Live Fleet Map', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 10),
+                    Container(
+                      height: 180,
+                      decoration: BoxDecoration(
+                        color: SoltechColors.green.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: SoltechColors.line),
+                      ),
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.map_outlined, size: 42, color: SoltechColors.green),
+                            SizedBox(height: 8),
+                            Text('Live taxi locations appear here when drivers are online.', textAlign: TextAlign.center, style: TextStyle(color: SoltechColors.muted)),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -599,42 +453,29 @@ class _DashboardTab extends StatelessWidget {
   }
 
   Future<_FleetSummary> _loadSummary() async {
-    final DatabaseEvent vehiclesEvent = await _db
-        .child('fleetVehicles/$fleetId')
-        .once();
-    final DatabaseEvent driversEvent = await _db
-        .child('fleetDrivers/$fleetId')
-        .once();
-    final DatabaseEvent onlineDriversEvent = await _db
-        .child('onlineDrivers')
-        .orderByChild('fleetId')
-        .equalTo(fleetId)
-        .once();
-    final DatabaseEvent ridesEvent = await _db
-        .child('rideRequests')
-        .orderByChild('fleetId')
-        .equalTo(fleetId)
-        .once();
+    final DatabaseEvent vehiclesEvent = await _db.child('fleetVehicles/$fleetId').once();
+    final DatabaseEvent driversEvent = await _db.child('fleetDrivers/$fleetId').once();
+    final DatabaseEvent onlineDriversEvent = await _db.child('onlineDrivers').orderByChild('fleetId').equalTo(fleetId).once();
+    final DatabaseEvent ridesEvent = await _db.child('rideRequests').orderByChild('fleetId').equalTo(fleetId).once();
 
-    final int vehicleCount = _mapLength(vehiclesEvent.snapshot.value);
-    final int driverCount = _mapLength(driversEvent.snapshot.value);
-    final int onlineDriverCount = _mapLength(onlineDriversEvent.snapshot.value);
+    int tripCount = 0;
     int activeTripCount = 0;
     double completedEarnings = 0;
+    double cashLedger = 0;
+    double digitalLedger = 0;
 
     if (ridesEvent.snapshot.value is Map) {
-      final Map<Object?, Object?> rides = Map<Object?, Object?>.from(
-        ridesEvent.snapshot.value as Map,
-      );
+      final Map<Object?, Object?> rides = Map<Object?, Object?>.from(ridesEvent.snapshot.value as Map);
       for (final Object? value in rides.values) {
-        if (value is! Map) {
-          continue;
-        }
-
+        if (value is! Map) continue;
         final Map<Object?, Object?> ride = Map<Object?, Object?>.from(value);
         final String status = (ride['status'] ?? '').toString();
+        final double fare = _doubleFrom(ride['fareEstimate']);
+        tripCount++;
         if (status == 'completed') {
-          completedEarnings += _doubleFrom(ride['fareEstimate']);
+          completedEarnings += fare;
+          final String paymentMethod = (ride['paymentMethod'] ?? 'cash').toString();
+          if (paymentMethod == 'digital') digitalLedger += fare; else cashLedger += fare;
         } else if (status != 'cancelled') {
           activeTripCount++;
         }
@@ -642,11 +483,14 @@ class _DashboardTab extends StatelessWidget {
     }
 
     return _FleetSummary(
-      vehicleCount: vehicleCount,
-      driverCount: driverCount,
-      onlineDriverCount: onlineDriverCount,
+      vehicleCount: _mapLength(vehiclesEvent.snapshot.value),
+      driverCount: _mapLength(driversEvent.snapshot.value),
+      onlineDriverCount: _mapLength(onlineDriversEvent.snapshot.value),
+      tripCount: tripCount,
       activeTripCount: activeTripCount,
       completedEarnings: completedEarnings,
+      cashLedger: cashLedger,
+      digitalLedger: digitalLedger,
     );
   }
 }
@@ -670,25 +514,18 @@ class _VehiclesTab extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: onAddVehicle,
         icon: const Icon(Icons.add),
-        label: const Text('Vehicle'),
+        label: const Text('Add Vehicle'),
       ),
       body: StreamBuilder<DatabaseEvent>(
-        stream: FirebaseDatabase.instance
-            .ref('fleetVehicles/$fleetId')
-            .onValue,
+        stream: FirebaseDatabase.instance.ref('fleetVehicles/$fleetId').onValue,
         builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
           final List<FleetVehicle> vehicles = _parseChildren<FleetVehicle>(
             snapshot.data?.snapshot.value,
-            (String id, Object? value) =>
-                FleetVehicle.fromSnapshotValue(id, fleetId, value),
+            (String id, Object? value) => FleetVehicle.fromSnapshotValue(id, fleetId, value),
           );
 
           if (vehicles.isEmpty) {
-            return const _EmptyState(
-              icon: Icons.directions_car_outlined,
-              title: 'No vehicles yet',
-              body: 'Add taxi vehicles so invites and drivers can be assigned.',
-            );
+            return const _EmptyState(icon: Icons.local_taxi_outlined, title: 'No vehicles yet', body: 'Add your taxis before creating driver accounts.');
           }
 
           return ListView.separated(
@@ -700,123 +537,17 @@ class _VehiclesTab extends StatelessWidget {
               return _Panel(
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const CircleAvatar(
-                    child: Icon(Icons.local_taxi_outlined),
-                  ),
-                  title: Text(
-                    vehicle.plateNumber.isEmpty
-                        ? vehicle.displayName
-                        : vehicle.plateNumber,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: Text(
-                    '${vehicle.displayName}\nStatus: ${vehicle.status}',
-                  ),
+                  leading: const CircleAvatar(child: Icon(Icons.local_taxi_outlined)),
+                  title: Text(vehicle.plateNumber.isEmpty ? vehicle.displayName : vehicle.plateNumber, style: const TextStyle(fontWeight: FontWeight.w900)),
+                  subtitle: Text('${vehicle.displayName}\nStatus: ${vehicle.status}'),
                   isThreeLine: true,
                   trailing: PopupMenuButton<String>(
-                    onSelected: (String action) {
-                      if (action == 'edit') {
-                        onEditVehicle(vehicle);
-                      } else {
-                        onArchiveVehicle(vehicle);
-                      }
-                    },
-                    itemBuilder: (BuildContext context) {
-                      return const [
-                        PopupMenuItem(value: 'edit', child: Text('Edit')),
-                        PopupMenuItem(
-                          value: 'archive',
-                          child: Text('Archive'),
-                        ),
-                      ];
-                    },
+                    onSelected: (String action) => action == 'edit' ? onEditVehicle(vehicle) : onArchiveVehicle(vehicle),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      PopupMenuItem(value: 'archive', child: Text('Archive')),
+                    ],
                   ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _InvitesTab extends StatelessWidget {
-  const _InvitesTab({
-    required this.fleetId,
-    required this.onCreateInvite,
-    required this.onRevokeInvite,
-  });
-
-  final String fleetId;
-  final VoidCallback onCreateInvite;
-  final ValueChanged<FleetInvite> onRevokeInvite;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: onCreateInvite,
-        icon: const Icon(Icons.add),
-        label: const Text('Invite'),
-      ),
-      body: StreamBuilder<DatabaseEvent>(
-        stream: FirebaseDatabase.instance
-            .ref('fleetInvites')
-            .orderByChild('fleetId')
-            .equalTo(fleetId)
-            .onValue,
-        builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
-          final List<FleetInvite> invites = _parseChildren<FleetInvite>(
-            snapshot.data?.snapshot.value,
-            FleetInvite.fromSnapshotValue,
-          );
-          invites.sort(
-            (FleetInvite a, FleetInvite b) => b.createdAt.compareTo(a.createdAt),
-          );
-
-          if (invites.isEmpty) {
-            return const _EmptyState(
-              icon: Icons.confirmation_number_outlined,
-              title: 'No invites yet',
-              body: 'Create invite codes for drivers to claim during signup.',
-            );
-          }
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: invites.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (BuildContext context, int index) {
-              final FleetInvite invite = invites[index];
-              return _Panel(
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    backgroundColor: invite.isPending
-                        ? SoltechColors.green.withValues(alpha: 0.12)
-                        : Colors.grey.withValues(alpha: 0.15),
-                    child: Icon(
-                      invite.isPending
-                          ? Icons.confirmation_number
-                          : Icons.lock_clock,
-                      color: invite.isPending ? SoltechColors.green : Colors.grey,
-                    ),
-                  ),
-                  title: SelectableText(
-                    invite.code,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: Text(
-                    '${invite.email.isEmpty ? invite.phone : invite.email}\nStatus: ${invite.status}',
-                  ),
-                  isThreeLine: true,
-                  trailing: invite.isPending
-                      ? TextButton(
-                          onPressed: () => onRevokeInvite(invite),
-                          child: const Text('Revoke'),
-                        )
-                      : null,
                 ),
               );
             },
@@ -830,48 +561,166 @@ class _InvitesTab extends StatelessWidget {
 class _DriversTab extends StatelessWidget {
   const _DriversTab({
     required this.fleetId,
-    required this.onApproveDriver,
+    required this.onCreateDriver,
     required this.onBlockDriver,
+    required this.onActivateDriver,
     required this.onAssignVehicle,
   });
 
   final String fleetId;
-  final void Function(String fleetId, String driverId) onApproveDriver;
+  final VoidCallback onCreateDriver;
   final void Function(String fleetId, String driverId) onBlockDriver;
-  final void Function(String fleetId, String driverId, String currentVehicleId)
-      onAssignVehicle;
+  final void Function(String fleetId, String driverId) onActivateDriver;
+  final void Function(String fleetId, String driverId, String currentVehicleId) onAssignVehicle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: onCreateDriver,
+        icon: const Icon(Icons.person_add_alt_1),
+        label: const Text('Create Driver'),
+      ),
+      body: StreamBuilder<DatabaseEvent>(
+        stream: FirebaseDatabase.instance.ref('fleetDrivers/$fleetId').onValue,
+        builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
+          final List<FleetDriverLink> links = _parseChildren<FleetDriverLink>(
+            snapshot.data?.snapshot.value,
+            (String id, Object? value) => FleetDriverLink.fromSnapshotValue(id, fleetId, value),
+          );
+
+          if (links.isEmpty) {
+            return const _EmptyState(
+              icon: Icons.group_outlined,
+              title: 'No drivers yet',
+              body: 'Create driver accounts here. Drivers cannot register themselves.',
+            );
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: links.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemBuilder: (BuildContext context, int index) {
+              final FleetDriverLink link = links[index];
+              return _DriverCard(
+                link: link,
+                onBlock: () => onBlockDriver(fleetId, link.driverId),
+                onActivate: () => onActivateDriver(fleetId, link.driverId),
+                onAssignVehicle: () => onAssignVehicle(fleetId, link.driverId, link.vehicleId),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _DriverCard extends StatelessWidget {
+  const _DriverCard({required this.link, required this.onBlock, required this.onActivate, required this.onAssignVehicle});
+
+  final FleetDriverLink link;
+  final VoidCallback onBlock;
+  final VoidCallback onActivate;
+  final VoidCallback onAssignVehicle;
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DatabaseEvent>(
-      stream: FirebaseDatabase.instance.ref('fleetDrivers/$fleetId').onValue,
+      stream: FirebaseDatabase.instance.ref('drivers/${link.driverId}').onValue,
       builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
-        final List<FleetDriverLink> links = _parseChildren<FleetDriverLink>(
-          snapshot.data?.snapshot.value,
-          (String id, Object? value) =>
-              FleetDriverLink.fromSnapshotValue(id, fleetId, value),
-        );
+        final DriverProfileModel? driver = DriverProfileModel.fromSnapshotValue(link.driverId, snapshot.data?.snapshot.value);
+        final bool blocked = link.blockStatus == 'yes' || driver?.blockStatus == 'yes';
 
-        if (links.isEmpty) {
-          return const _EmptyState(
-            icon: Icons.group_outlined,
-            title: 'No fleet drivers yet',
-            body: 'Drivers appear here after they claim an invite code.',
-          );
+        return _Panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(backgroundColor: SoltechColors.green.withValues(alpha: 0.12), child: const Icon(Icons.person, color: SoltechColors.green)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(driver?.name ?? link.driverId, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                        Text(driver?.email ?? 'Driver profile loading...', style: const TextStyle(color: SoltechColors.muted)),
+                      ],
+                    ),
+                  ),
+                  _StatusPill(label: blocked ? 'blocked' : driver?.onlineStatus ?? link.approvalStatus),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text('Vehicle: ${driver?.plateNumber.isEmpty == false ? driver!.plateNumber : link.vehicleId.isEmpty ? 'Unassigned' : link.vehicleId}', style: const TextStyle(color: SoltechColors.muted)),
+              if (driver != null) Text('${driver.vehicleColor} ${driver.vehicleModel}', style: const TextStyle(color: SoltechColors.muted)),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(onPressed: onAssignVehicle, icon: const Icon(Icons.local_taxi_outlined), label: const Text('Assign Vehicle')),
+                  if (blocked)
+                    ElevatedButton.icon(onPressed: onActivate, icon: const Icon(Icons.check_circle_outline), label: const Text('Activate'))
+                  else
+                    OutlinedButton.icon(
+                      onPressed: onBlock,
+                      icon: const Icon(Icons.block),
+                      label: const Text('Block'),
+                      style: OutlinedButton.styleFrom(foregroundColor: SoltechColors.red),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TripsTab extends StatelessWidget {
+  const _TripsTab({required this.fleetId});
+
+  final String fleetId;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DatabaseEvent>(
+      stream: FirebaseDatabase.instance.ref('rideRequests').orderByChild('fleetId').equalTo(fleetId).onValue,
+      builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
+        final List<RideRequestModel> rides = _parseChildren<RideRequestModel>(snapshot.data?.snapshot.value, RideRequestModel.fromSnapshotValue)
+          ..sort((RideRequestModel a, RideRequestModel b) => b.createdAt.compareTo(a.createdAt));
+
+        if (rides.isEmpty) {
+          return const _EmptyState(icon: Icons.route_outlined, title: 'No trips yet', body: 'Completed and active trips for your fleet will appear here.');
         }
 
         return ListView.separated(
           padding: const EdgeInsets.all(16),
-          itemCount: links.length,
+          itemCount: rides.length,
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (BuildContext context, int index) {
-            final FleetDriverLink link = links[index];
-            return _DriverCard(
-              link: link,
-              onApprove: () => onApproveDriver(fleetId, link.driverId),
-              onBlock: () => onBlockDriver(fleetId, link.driverId),
-              onAssignVehicle: () =>
-                  onAssignVehicle(fleetId, link.driverId, link.vehicleId),
+            final RideRequestModel ride = rides[index];
+            return _Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: Text('Trip ${ride.id}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900))),
+                      _StatusPill(label: ride.status),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _MiniRow(icon: Icons.my_location, label: ride.pickup.humanReadableAddress ?? ride.pickup.placeName ?? 'Pickup'),
+                  _MiniRow(icon: Icons.location_on, label: ride.destination.humanReadableAddress ?? ride.destination.placeName ?? 'Destination'),
+                  const SizedBox(height: 8),
+                  Text('${(ride.routeMeters / 1000).toStringAsFixed(1)} km • K${ride.fareEstimate.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                ],
+              ),
             );
           },
         );
@@ -880,103 +729,61 @@ class _DriversTab extends StatelessWidget {
   }
 }
 
-class _DriverCard extends StatelessWidget {
-  const _DriverCard({
-    required this.link,
-    required this.onApprove,
-    required this.onBlock,
-    required this.onAssignVehicle,
-  });
+class _LedgerTab extends StatelessWidget {
+  const _LedgerTab({required this.fleetId});
 
-  final FleetDriverLink link;
-  final VoidCallback onApprove;
-  final VoidCallback onBlock;
-  final VoidCallback onAssignVehicle;
+  final String fleetId;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DatabaseEvent>(
-      stream: FirebaseDatabase.instance.ref('drivers/${link.driverId}').onValue,
-      builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
-        final DriverProfileModel? driver = DriverProfileModel.fromSnapshotValue(
-          link.driverId,
-          snapshot.data?.snapshot.value,
-        );
-
-        return _Panel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    return FutureBuilder<_FleetSummary>(
+      future: _loadLedger(),
+      builder: (BuildContext context, AsyncSnapshot<_FleetSummary> snapshot) {
+        final _FleetSummary summary = snapshot.data ?? const _FleetSummary();
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const CircleAvatar(child: Icon(Icons.person_outline)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          driver?.name ?? link.driverId,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          driver?.email ?? 'Driver profile pending',
-                          style: const TextStyle(color: SoltechColors.muted),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _StatusPill(
-                    label: link.blockStatus == 'yes'
-                        ? 'blocked'
-                        : link.approvalStatus,
-                  ),
+                  const Text('Cash / Digital Ledger', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 8),
+                  const Text('Tracks fares, cash collection, digital payments, and fleet income accountability.', style: TextStyle(color: SoltechColors.muted)),
+                  const SizedBox(height: 18),
+                  _LedgerTile(label: 'Cash Collected by Drivers', value: 'K${summary.cashLedger.toStringAsFixed(2)}', icon: Icons.money),
+                  _LedgerTile(label: 'Digital Payments', value: 'K${summary.digitalLedger.toStringAsFixed(2)}', icon: Icons.credit_card),
+                  _LedgerTile(label: 'Total Completed Earnings', value: 'K${summary.completedEarnings.toStringAsFixed(2)}', icon: Icons.account_balance_wallet_outlined),
+                  _LedgerTile(label: 'Estimated Platform Commission', value: 'K${(summary.completedEarnings * 0.10).toStringAsFixed(2)}', icon: Icons.percent),
                 ],
               ),
-              const SizedBox(height: 14),
-              Text(
-                'Vehicle: ${link.vehicleId.isEmpty ? 'Unassigned' : link.vehicleId}',
-                style: const TextStyle(color: SoltechColors.muted),
-              ),
-              if (driver != null)
-                Text(
-                  '${driver.vehicleColor} ${driver.vehicleModel} - ${driver.plateNumber}',
-                  style: const TextStyle(color: SoltechColors.muted),
-                ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: onAssignVehicle,
-                    icon: const Icon(Icons.directions_car_outlined),
-                    label: const Text('Assign'),
-                  ),
-                  if (link.approvalStatus != 'approved')
-                    ElevatedButton.icon(
-                      onPressed: onApprove,
-                      icon: const Icon(Icons.check),
-                      label: const Text('Approve'),
-                    ),
-                  OutlinedButton.icon(
-                    onPressed: onBlock,
-                    icon: const Icon(Icons.block),
-                    label: const Text('Block'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: SoltechColors.red,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
+  }
+
+  Future<_FleetSummary> _loadLedger() async {
+    final DatabaseEvent ridesEvent = await FirebaseDatabase.instance.ref('rideRequests').orderByChild('fleetId').equalTo(fleetId).once();
+    double completed = 0;
+    double cash = 0;
+    double digital = 0;
+    int trips = 0;
+    if (ridesEvent.snapshot.value is Map) {
+      final Map<Object?, Object?> rides = Map<Object?, Object?>.from(ridesEvent.snapshot.value as Map);
+      for (final Object? value in rides.values) {
+        if (value is! Map) continue;
+        final Map<Object?, Object?> ride = Map<Object?, Object?>.from(value);
+        if ((ride['status'] ?? '').toString() != 'completed') continue;
+        final double fare = _doubleFrom(ride['fareEstimate']);
+        completed += fare;
+        trips++;
+        if ((ride['paymentMethod'] ?? 'cash').toString() == 'digital') digital += fare; else cash += fare;
+      }
+    }
+    return _FleetSummary(tripCount: trips, completedEarnings: completed, cashLedger: cash, digitalLedger: digital);
   }
 }
 
@@ -988,15 +795,10 @@ class _FleetAccountTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final User? currentUser = FirebaseAuth.instance.currentUser;
     return StreamBuilder<DatabaseEvent>(
       stream: FirebaseDatabase.instance.ref('fleets/$fleetId').onValue,
       builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
-        final FleetProfile? fleet = FleetProfile.fromSnapshotValue(
-          fleetId,
-          snapshot.data?.snapshot.value,
-        );
-
+        final FleetProfile? fleet = FleetProfile.fromSnapshotValue(fleetId, snapshot.data?.snapshot.value);
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -1004,109 +806,26 @@ class _FleetAccountTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    fleet?.name ?? 'Fleet',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    currentUser?.email ?? fleet?.email ?? '',
-                    style: const TextStyle(color: SoltechColors.muted),
-                  ),
+                  const Text('Fleet Account', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 16),
+                  _MiniRow(icon: Icons.business, label: fleet?.name ?? 'Fleet Name'),
+                  _MiniRow(icon: Icons.phone, label: fleet?.phone ?? 'Phone'),
+                  _MiniRow(icon: Icons.email, label: fleet?.email ?? 'Email'),
+                  _MiniRow(icon: Icons.verified_user, label: 'Status: ${fleet?.status ?? 'active'}'),
                   const SizedBox(height: 18),
-                  ElevatedButton.icon(
-                    onPressed: onEditFleet,
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Edit Fleet'),
+                  ElevatedButton.icon(onPressed: onEditFleet, icon: const Icon(Icons.edit), label: const Text('Edit Fleet Profile')),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => context.read<AppSession>().signOut(),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Sign Out'),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            const _Panel(child: RoleSwitcherButton()),
-            const SizedBox(height: 14),
-            _Panel(
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.logout, color: SoltechColors.red),
-                title: const Text(
-                  'Sign Out',
-                  style: TextStyle(
-                    color: SoltechColors.red,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                onTap: () => context.read<AppSession>().signOut(),
               ),
             ),
           ],
         );
       },
-    );
-  }
-}
-
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return _Panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color),
-          const Spacer(),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(color: SoltechColors.muted)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool approved = label == 'approved';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: approved
-            ? SoltechColors.green.withValues(alpha: 0.12)
-            : SoltechColors.amber.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: approved ? SoltechColors.green : SoltechColors.amber,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
     );
   }
 }
@@ -1122,20 +841,123 @@ class _Panel extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: SoltechColors.line),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: child,
     );
   }
 }
 
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({required this.label, required this.value, required this.icon, required this.color});
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: SoltechColors.line)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(backgroundColor: color.withValues(alpha: 0.12), child: Icon(icon, color: color)),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+          Text(label, style: const TextStyle(color: SoltechColors.muted)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({required this.icon, required this.label, required this.onTap, this.fullWidth = false});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool fullWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: fullWidth ? double.infinity : null,
+      child: OutlinedButton.icon(onPressed: onTap, icon: Icon(icon), label: Text(label)),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool good = label == 'approved' || label == 'available' || label == 'active';
+    final bool bad = label == 'blocked' || label == 'cancelled' || label == 'rejected';
+    final Color color = good ? SoltechColors.green : bad ? SoltechColors.red : SoltechColors.amber;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(999)),
+      child: Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+class _MiniRow extends StatelessWidget {
+  const _MiniRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: SoltechColors.muted),
+          const SizedBox(width: 10),
+          Expanded(child: Text(label)),
+        ],
+      ),
+    );
+  }
+}
+
+class _LedgerTile extends StatelessWidget {
+  const _LedgerTile({required this.label, required this.value, required this.icon});
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          CircleAvatar(backgroundColor: SoltechColors.green.withValues(alpha: 0.10), child: Icon(icon, color: SoltechColors.green)),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
+  const _EmptyState({required this.icon, required this.title, required this.body});
 
   final IconData icon;
   final String title;
@@ -1149,19 +971,11 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-            ),
+            Icon(icon, size: 58, color: SoltechColors.muted),
+            const SizedBox(height: 14),
+            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
-            Text(
-              body,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: SoltechColors.muted),
-            ),
+            Text(body, textAlign: TextAlign.center, style: const TextStyle(color: SoltechColors.muted)),
           ],
         ),
       ),
@@ -1174,49 +988,40 @@ class _FleetSummary {
     this.vehicleCount = 0,
     this.driverCount = 0,
     this.onlineDriverCount = 0,
+    this.tripCount = 0,
     this.activeTripCount = 0,
     this.completedEarnings = 0,
+    this.cashLedger = 0,
+    this.digitalLedger = 0,
   });
 
   final int vehicleCount;
   final int driverCount;
   final int onlineDriverCount;
+  final int tripCount;
   final int activeTripCount;
   final double completedEarnings;
+  final double cashLedger;
+  final double digitalLedger;
 }
 
-List<T> _parseChildren<T>(
-  Object? value,
-  T? Function(String id, Object? value) builder,
-) {
-  if (value is! Map) {
-    return <T>[];
-  }
-
+List<T> _parseChildren<T>(Object? value, T? Function(String id, Object? value) builder) {
+  if (value is! Map) return <T>[];
   final Map<Object?, Object?> raw = Map<Object?, Object?>.from(value);
-  final List<T> items = <T>[];
-  raw.forEach((Object? key, Object? childValue) {
-    final T? item = builder(key.toString(), childValue);
-    if (item != null) {
-      items.add(item);
-    }
-  });
-
-  return items;
+  final List<T> result = <T>[];
+  for (final MapEntry<Object?, Object?> entry in raw.entries) {
+    final T? item = builder(entry.key.toString(), entry.value);
+    if (item != null) result.add(item);
+  }
+  return result;
 }
 
 int _mapLength(Object? value) {
-  if (value is! Map) {
-    return 0;
-  }
-
+  if (value is! Map) return 0;
   return value.length;
 }
 
 double _doubleFrom(Object? value) {
-  if (value is num) {
-    return value.toDouble();
-  }
-
+  if (value is num) return value.toDouble();
   return double.tryParse((value ?? '').toString()) ?? 0;
 }

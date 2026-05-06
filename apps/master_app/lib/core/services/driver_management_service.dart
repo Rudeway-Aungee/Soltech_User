@@ -24,6 +24,8 @@ class DriverManagementService {
     required String vehicleModel,
     required String vehicleColor,
     required String plateNumber,
+    String licenseNumber = '',
+    String vehicleId = '',
   }) async {
     final String driverId = IdGenerator.generateDriverId();
     final String tempPassword = _generateTempPassword();
@@ -62,6 +64,7 @@ class DriverManagementService {
         'name': driverName.trim(),
         'phone': phone.trim(),
         'email': email.trim(),
+        'licenseNumber': licenseNumber.trim(),
         'vehicleModel': vehicleModel.trim(),
         'vehicleColor': vehicleColor.trim(),
         'plateNumber': plateNumber.trim().toUpperCase(),
@@ -70,6 +73,7 @@ class DriverManagementService {
         'approvalStatus': 'approved',
         'onlineStatus': 'offline',
         'fleetId': fleetId,
+        'vehicleId': vehicleId,
         'createdByFleetOwner': true,
         'createdAt': now,
         'updatedAt': now,
@@ -80,6 +84,7 @@ class DriverManagementService {
         'email': email.trim(),
         'uid': user.uid,
         'fleetId': fleetId,
+        'vehicleId': vehicleId,
         'driverName': driverName.trim(),
         'phone': phone.trim(),
         'status': 'active',
@@ -91,6 +96,7 @@ class DriverManagementService {
         'driverId': user.uid,
         'externalDriverId': driverId,
         'fleetId': fleetId,
+        'vehicleId': vehicleId,
         'approvalStatus': 'approved',
         'blockStatus': 'no',
         'createdAt': now,
