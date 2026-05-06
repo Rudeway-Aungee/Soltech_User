@@ -1,5 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:soltech_master_app/methods/associate_methods.dart';
+import 'package:soltech_master_app/core/services/associate_methods.dart';
 
 AssociateMethods associateMethods = AssociateMethods();
 String userName = '';

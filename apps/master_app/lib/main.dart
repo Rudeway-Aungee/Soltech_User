@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
-import 'appinfo/app_info.dart';
+import 'core/app_state/app_info.dart';
 import 'core/design_system/app_theme.dart';
 import 'core/session/app_session.dart';
 import 'features/gateway/app_gateway.dart';

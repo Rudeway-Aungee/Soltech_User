@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:soltech_master_app/driver_pages/home_page.dart' as driver;
-import 'package:soltech_master_app/driver_pages/pending_approval_page.dart';
-import 'package:soltech_master_app/pages/home_page.dart' as passenger;
+import 'package:soltech_master_app/features/driver/driver_home_page.dart' as driver;
+import 'package:soltech_master_app/features/driver/driver_pending_approval_page.dart';
+import 'package:soltech_master_app/features/passenger/passenger_home_page.dart' as passenger;
 
 import '../../core/design_system/app_theme.dart';
 import '../../core/models/app_role.dart';
 import '../../core/session/app_session.dart';
-import '../fleet_owner/fleet_owner_home_page.dart';
-import '../fleet_owner/fleet_owner_pending_approval_page.dart';
+import 'package:soltech_master_app/features/fleet_control/fleet_control_home_page.dart';
+import 'package:soltech_master_app/features/fleet_control/fleet_control_pending_approval_page.dart';
 import 'welcome_role_page.dart';
 
 class AppGateway extends StatelessWidget {
@@ -27,13 +27,13 @@ class AppGateway extends StatelessWidget {
     }
 
     if (session.status == AppSessionStatus.driverPending) {
-      return PendingApprovalPage(
+      return DriverPendingApprovalPage(
         initialStatus: session.driverApprovalStatus ?? 'pending',
       );
     }
 
     if (session.status == AppSessionStatus.fleetPending) {
-      return FleetOwnerPendingApprovalPage(
+      return FleetControlPendingApprovalPage(
         initialStatus: session.fleetApprovalStatus ?? 'pending',
       );
     }
@@ -70,7 +70,7 @@ class _RoleNavigator extends StatelessWidget {
               case AppRole.driver:
                 return const driver.HomePage();
               case AppRole.fleetOwner:
-                return const FleetOwnerHomePage();
+                return const FleetControlHomePage();
             }
           },
         );
