@@ -97,65 +97,33 @@ class _FleetControlHomePageState extends State<FleetControlHomePage> {
   }
 
   Future<void> _showVehicleDialog(String fleetId, {FleetVehicle? vehicle}) async {
-    final TextEditingController makeController = TextEditingController(text: vehicle?.make ?? '');
-    final TextEditingController modelController = TextEditingController(text: vehicle?.model ?? '');
-    final TextEditingController colorController = TextEditingController(text: vehicle?.color ?? '');
-    final TextEditingController plateController = TextEditingController(text: vehicle?.plateNumber ?? '');
-
     await showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text(vehicle == null ? 'Add Vehicle' : 'Edit Vehicle'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _dialogField(makeController, 'Make'),
-                const SizedBox(height: 12),
-                _dialogField(modelController, 'Model'),
-                const SizedBox(height: 12),
-                _dialogField(colorController, 'Color'),
-                const SizedBox(height: 12),
-                _dialogField(plateController, 'Plate Number'),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                if (plateController.text.trim().length < 3) {
-                  _showMessage('Plate number is required.');
-                  return;
-                }
-                final int now = DateTime.now().millisecondsSinceEpoch;
-                final String vehicleId = vehicle?.id ?? _db.child('fleetVehicles/$fleetId').push().key!;
-                await _db.child('fleetVehicles/$fleetId/$vehicleId').update(<String, dynamic>{
-                  'id': vehicleId,
-                  'fleetId': fleetId,
-                  'make': makeController.text.trim(),
-                  'model': modelController.text.trim(),
-                  'color': colorController.text.trim(),
-                  'plateNumber': plateController.text.trim().toUpperCase(),
-                  'serviceType': 'taxi',
-                  'status': vehicle?.status ?? 'active',
-                  'createdAt': vehicle?.createdAt == 0 ? now : vehicle?.createdAt ?? now,
-                  'updatedAt': now,
-                });
-                if (dialogContext.mounted) Navigator.pop(dialogContext);
-              },
-              child: const Text('Save'),
-            ),
-          ],
+        return _VehicleEditorDialog(
+          vehicle: vehicle,
+          onSave: (_VehicleFormData data) async {
+            final int now = DateTime.now().millisecondsSinceEpoch;
+            final String vehicleId =
+                vehicle?.id ?? _db.child('fleetVehicles/$fleetId').push().key!;
+
+            await _db.child('fleetVehicles/$fleetId/$vehicleId').update(<String, dynamic>{
+              'id': vehicleId,
+              'fleetId': fleetId,
+              'make': data.make,
+              'model': data.model,
+              'color': data.color,
+              'plateNumber': data.plateNumber,
+              'serviceType': 'taxi',
+              'status': vehicle?.status ?? 'active',
+              'createdAt': vehicle?.createdAt == 0 ? now : vehicle?.createdAt ?? now,
+              'updatedAt': now,
+            });
+          },
         );
       },
     );
-
-    makeController.dispose();
-    modelController.dispose();
-    colorController.dispose();
-    plateController.dispose();
   }
 
   Future<void> _archiveVehicle(FleetVehicle vehicle) async {
@@ -253,50 +221,31 @@ class _FleetControlHomePageState extends State<FleetControlHomePage> {
 
   Future<void> _showFleetDialog(String fleetId) async {
     final DatabaseEvent event = await _db.child('fleets/$fleetId').once();
-    final FleetProfile? fleet = FleetProfile.fromSnapshotValue(fleetId, event.snapshot.value);
-    final TextEditingController nameController = TextEditingController(text: fleet?.name ?? '');
-    final TextEditingController phoneController = TextEditingController(text: fleet?.phone ?? '');
-    final TextEditingController emailController = TextEditingController(text: fleet?.email ?? '');
+
+    if (!mounted) {
+      return;
+    }
+
+    final FleetProfile? fleet =
+        FleetProfile.fromSnapshotValue(fleetId, event.snapshot.value);
 
     await showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Edit Fleet Profile'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _dialogField(nameController, 'Fleet Name'),
-                const SizedBox(height: 12),
-                _dialogField(phoneController, 'Phone'),
-                const SizedBox(height: 12),
-                _dialogField(emailController, 'Email'),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                await _db.child('fleets/$fleetId').update(<String, dynamic>{
-                  'name': nameController.text.trim(),
-                  'phone': phoneController.text.trim(),
-                  'email': emailController.text.trim(),
-                  'updatedAt': DateTime.now().millisecondsSinceEpoch,
-                });
-                if (dialogContext.mounted) Navigator.pop(dialogContext);
-              },
-              child: const Text('Save'),
-            ),
-          ],
+        return _FleetProfileEditorDialog(
+          fleet: fleet,
+          onSave: (_FleetProfileFormData data) async {
+            await _db.child('fleets/$fleetId').update(<String, dynamic>{
+              'name': data.name,
+              'phone': data.phone,
+              'email': data.email,
+              'updatedAt': DateTime.now().millisecondsSinceEpoch,
+            });
+          },
         );
       },
     );
-
-    nameController.dispose();
-    phoneController.dispose();
-    emailController.dispose();
   }
 
   Future<List<FleetVehicle>> _loadVehicles(String fleetId) async {
@@ -317,6 +266,290 @@ class _FleetControlHomePageState extends State<FleetControlHomePage> {
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _VehicleFormData {
+  const _VehicleFormData({
+    required this.make,
+    required this.model,
+    required this.color,
+    required this.plateNumber,
+  });
+
+  final String make;
+  final String model;
+  final String color;
+  final String plateNumber;
+}
+
+class _VehicleEditorDialog extends StatefulWidget {
+  const _VehicleEditorDialog({
+    required this.vehicle,
+    required this.onSave,
+  });
+
+  final FleetVehicle? vehicle;
+  final Future<void> Function(_VehicleFormData data) onSave;
+
+  @override
+  State<_VehicleEditorDialog> createState() => _VehicleEditorDialogState();
+}
+
+class _VehicleEditorDialogState extends State<_VehicleEditorDialog> {
+  late final TextEditingController makeController;
+  late final TextEditingController modelController;
+  late final TextEditingController colorController;
+  late final TextEditingController plateController;
+  bool isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    makeController = TextEditingController(text: widget.vehicle?.make ?? '');
+    modelController = TextEditingController(text: widget.vehicle?.model ?? '');
+    colorController = TextEditingController(text: widget.vehicle?.color ?? '');
+    plateController = TextEditingController(text: widget.vehicle?.plateNumber ?? '');
+  }
+
+  @override
+  void dispose() {
+    makeController.dispose();
+    modelController.dispose();
+    colorController.dispose();
+    plateController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final _VehicleFormData data = _VehicleFormData(
+      make: makeController.text.trim(),
+      model: modelController.text.trim(),
+      color: colorController.text.trim(),
+      plateNumber: plateController.text.trim().toUpperCase(),
+    );
+
+    if (data.plateNumber.length < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Plate number is required.')),
+      );
+      return;
+    }
+
+    setState(() {
+      isSaving = true;
+    });
+
+    try {
+      await widget.onSave(data);
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to save vehicle: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSaving = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.vehicle == null ? 'Add Vehicle' : 'Edit Vehicle'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _dialogField(makeController, 'Make'),
+            const SizedBox(height: 12),
+            _dialogField(modelController, 'Model'),
+            const SizedBox(height: 12),
+            _dialogField(colorController, 'Color'),
+            const SizedBox(height: 12),
+            _dialogField(plateController, 'Plate Number'),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: isSaving ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: isSaving ? null : _submit,
+          child: isSaving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _dialogField(TextEditingController controller, String label) {
+    return TextField(
+      controller: controller,
+      enabled: !isSaving,
+      textCapitalization:
+          label.contains('Plate') ? TextCapitalization.characters : TextCapitalization.words,
+      decoration: InputDecoration(labelText: label),
+    );
+  }
+}
+
+class _FleetProfileFormData {
+  const _FleetProfileFormData({
+    required this.name,
+    required this.phone,
+    required this.email,
+  });
+
+  final String name;
+  final String phone;
+  final String email;
+}
+
+class _FleetProfileEditorDialog extends StatefulWidget {
+  const _FleetProfileEditorDialog({
+    required this.fleet,
+    required this.onSave,
+  });
+
+  final FleetProfile? fleet;
+  final Future<void> Function(_FleetProfileFormData data) onSave;
+
+  @override
+  State<_FleetProfileEditorDialog> createState() => _FleetProfileEditorDialogState();
+}
+
+class _FleetProfileEditorDialogState extends State<_FleetProfileEditorDialog> {
+  late final TextEditingController nameController;
+  late final TextEditingController phoneController;
+  late final TextEditingController emailController;
+  bool isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    nameController = TextEditingController(text: widget.fleet?.name ?? '');
+    phoneController = TextEditingController(text: widget.fleet?.phone ?? '');
+    emailController = TextEditingController(text: widget.fleet?.email ?? '');
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    phoneController.dispose();
+    emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final _FleetProfileFormData data = _FleetProfileFormData(
+      name: nameController.text.trim(),
+      phone: phoneController.text.trim(),
+      email: emailController.text.trim(),
+    );
+
+    if (data.name.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fleet name is required.')),
+      );
+      return;
+    }
+
+    setState(() {
+      isSaving = true;
+    });
+
+    try {
+      await widget.onSave(data);
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to save fleet profile: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSaving = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Fleet Profile'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _dialogField(nameController, 'Fleet Name'),
+            const SizedBox(height: 12),
+            _dialogField(phoneController, 'Phone'),
+            const SizedBox(height: 12),
+            _dialogField(emailController, 'Email'),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: isSaving ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: isSaving ? null : _submit,
+          child: isSaving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _dialogField(TextEditingController controller, String label) {
+    return TextField(
+      controller: controller,
+      enabled: !isSaving,
+      keyboardType: label == 'Email'
+          ? TextInputType.emailAddress
+          : label == 'Phone'
+              ? TextInputType.phone
+              : TextInputType.text,
+      textCapitalization: label == 'Email' ? TextCapitalization.none : TextCapitalization.words,
+      decoration: InputDecoration(labelText: label),
+    );
   }
 }
 
