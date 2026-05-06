@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Creates driver accounts for Fleet Control without logging out the Fleet Admin.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// DriverManagementService contains Fleet Control logic for creating driver accounts.
+// It uses a secondary Firebase app instance so creating a driver does not log out the Fleet Admin.
+// Driver accounts are created by Fleet Control only; drivers do not self-register.
+// ---------------------------------------------------------------------------
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -5,6 +16,7 @@ import 'package:firebase_database/firebase_database.dart';
 import '../../firebase_options.dart';
 import '../utils/id_generator.dart';
 
+// Service class used by Fleet Control to create driver accounts safely.
 class DriverManagementService {
   static final DriverManagementService _instance = DriverManagementService._internal();
 

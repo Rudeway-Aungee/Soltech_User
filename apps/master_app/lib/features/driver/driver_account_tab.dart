@@ -1,3 +1,13 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Shows driver profile, vehicle, approval status, and logout options.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Driver account tab.
+// It displays driver profile, assigned vehicle, approval status, and logout controls.
+// ---------------------------------------------------------------------------
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';

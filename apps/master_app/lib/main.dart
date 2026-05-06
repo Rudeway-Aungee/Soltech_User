@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Starts the Soltech Flutter app, initializes Firebase, registers Provider state, and opens the app gateway.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Soltech application entry point.
+// This file starts Firebase, registers app-wide providers, and opens the AppGateway.
+// AppGateway then decides whether to show the unified login screen or the correct user dashboard.
+// ---------------------------------------------------------------------------
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';

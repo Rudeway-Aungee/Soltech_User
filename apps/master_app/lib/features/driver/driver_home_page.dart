@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Main driver dashboard: online/offline, live location publishing, request acceptance, and trip completion.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Driver dashboard and ride workflow.
+// Drivers can go online/offline, publish live GPS location, receive passenger requests,
+// accept rides, mark arrival, start trips, and complete trips.
+// ---------------------------------------------------------------------------
+
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -22,6 +33,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+// Driver dashboard State: manages online status, ride request list, active trip, and GPS updates.
 class _HomePageState extends State<HomePage> {
   final Completer<GoogleMapController> googleMapCompleterController =
       Completer<GoogleMapController>();
@@ -224,6 +236,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // Listens for rideRequests with searching status and displays them to the driver.
   void _listenForOpenRideRequests() {
     _openRidesSubscription?.cancel();
 
@@ -275,6 +288,21 @@ class _HomePageState extends State<HomePage> {
       );
       if (ride == null) {
         return;
+      }
+
+      // If this driver already rejected this request, hide it from the request list.
+      // This lets the request continue searching for another available driver.
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null && value is Map) {
+        final Map<Object?, Object?> rideMap = Map<Object?, Object?>.from(value);
+        final Object? rejectedValue = rideMap['rejectedDrivers'];
+        if (rejectedValue is Map) {
+          final Map<Object?, Object?> rejectedDrivers =
+              Map<Object?, Object?>.from(rejectedValue);
+          if (rejectedDrivers[currentUser.uid] == true) {
+            return;
+          }
+        }
       }
 
       // Passenger requests may store service labels such as "City Ride",
@@ -366,6 +394,9 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+
+  // Makes the driver available for ride requests and starts publishing live GPS location.
+  // Puts driver into onlineDrivers and starts receiving ride requests.
   Future<void> _goOnline() async {
     await _refreshCurrentLocation(animateCamera: false);
     setState(() {
@@ -379,6 +410,9 @@ class _HomePageState extends State<HomePage> {
     _listenForOpenRideRequests();
   }
 
+
+  // Removes the driver from onlineDrivers so passengers cannot be matched to this driver.
+  // Removes driver from onlineDrivers so passengers cannot match to this driver.
   Future<void> _goOffline() async {
     _locationTimer?.cancel();
     _openRidesSubscription?.cancel();
@@ -415,6 +449,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // Publishes driver GPS every few seconds while online.
   void _startLocationUpdates() {
     _locationTimer?.cancel();
     _locationTimer = Timer.periodic(const Duration(seconds: 5), (Timer timer) {
@@ -422,6 +457,10 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+
+  // Writes the driver's live GPS position to Firebase.
+  // Passenger and Fleet Control screens use this location for real-time tracking.
+  // Writes live driver coordinates into Firebase for passenger and fleet tracking.
   Future<void> _publishCurrentLocation() async {
     if (!_isOnline) {
       return;
@@ -516,6 +555,10 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+
+  // Driver accepts a passenger ride request.
+  // A Firebase transaction is used so two drivers cannot accept the same request at the same time.
+  // Accepts a ride using a transaction so two drivers cannot take the same booking.
   Future<void> _acceptRideRequest(RideRequestModel ride) async {
     if (_activeRideRequest != null || _isProcessingRideAction) {
       return;
@@ -591,6 +634,65 @@ class _HomePageState extends State<HomePage> {
       }
 
       associateMethods.showSnackBarMsg('Unable to accept ride: $e', context);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessingRideAction = false;
+        });
+      }
+    }
+  }
+
+
+
+  // Driver rejects a passenger request.
+  // The ride is not cancelled globally; it is only hidden from this driver so another driver can accept it.
+  Future<void> _rejectRideRequest(RideRequestModel ride) async {
+    if (_isProcessingRideAction) {
+      return;
+    }
+
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      associateMethods.showSnackBarMsg('Driver session not found.', context);
+      return;
+    }
+
+    setState(() {
+      _isProcessingRideAction = true;
+    });
+
+    try {
+      final int now = DateTime.now().millisecondsSinceEpoch;
+      await FirebaseDatabase.instance
+          .ref()
+          .child('rideRequests')
+          .child(ride.id)
+          .child('rejectedDrivers')
+          .child(currentUser.uid)
+          .set(<String, dynamic>{
+        'driverId': currentUser.uid,
+        'driverName': _driverProfile?.name ?? '',
+        'rejectedAt': now,
+      });
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _openRideRequests = _openRideRequests
+            .where((RideRequestModel item) => item.id != ride.id)
+            .toList();
+      });
+
+      associateMethods.showSnackBarMsg('Ride request rejected.', context);
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      associateMethods.showSnackBarMsg('Unable to reject ride: $e', context);
     } finally {
       if (mounted) {
         setState(() {
@@ -1130,106 +1232,170 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 18),
           SizedBox(
-            height: 280,
+            height: 370,
             child: ListView.separated(
               itemCount: _openRideRequests.length,
               separatorBuilder: (BuildContext context, int index) =>
                   const SizedBox(height: 12),
               itemBuilder: (BuildContext context, int index) {
                 final RideRequestModel ride = _openRideRequests[index];
-                final double pickupDistanceKm =
-                    _distanceToRidePickup(ride) / 1000;
-
-                return Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'K${ride.fareEstimate.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            pickupDistanceKm.isFinite
-                                ? '${pickupDistanceKm.toStringAsFixed(1)} km away'
-                                : 'Distance unavailable',
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _metricRow(
-                        icon: Icons.my_location,
-                        iconColor: Colors.blue,
-                        label: 'Pickup',
-                        value:
-                            ride.pickup.humanReadableAddress ??
-                            ride.pickup.placeName ??
-                            'Pickup',
-                      ),
-                      const SizedBox(height: 10),
-                      _metricRow(
-                        icon: Icons.location_on,
-                        iconColor: Colors.red,
-                        label: 'Destination',
-                        value:
-                            ride.destination.humanReadableAddress ??
-                            ride.destination.placeName ??
-                            'Destination',
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${(ride.routeMeters / 1000).toStringAsFixed(1)} km • ${_formatTimestamp(ride.createdAt)}',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          ElevatedButton(
-                            onPressed: _isProcessingRideAction
-                                ? null
-                                : () => _acceptRideRequest(ride),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                              'Accept',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
+                return _buildRideRequestCard(ride);
               },
             ),
           ),
         ],
       ),
     );
+  }
+
+
+  // Builds the request card shown to drivers when a passenger is searching for a taxi.
+  // This is the important screen that gives the driver clear Accept Ride and Reject actions.
+  Widget _buildRideRequestCard(RideRequestModel ride) {
+    final double pickupDistanceKm = _distanceToRidePickup(ride) / 1000;
+    final String passengerName = _passengerNameFromRide(ride);
+    final String pickup = ride.pickup.humanReadableAddress ??
+        ride.pickup.placeName ??
+        'Pickup location';
+    final String destination = ride.destination.humanReadableAddress ??
+        ride.destination.placeName ??
+        'Destination';
+    final String distanceText = ride.routeMeters > 0
+        ? '${(ride.routeMeters / 1000).toStringAsFixed(1)} km'
+        : pickupDistanceKm.isFinite
+            ? '${pickupDistanceKm.toStringAsFixed(1)} km away'
+            : 'Distance unavailable';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: Color(0xFFE8F5E9),
+                child: Icon(Icons.notifications_active_outlined, color: Colors.green),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'New Ride Request',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _requestDetailRow(Icons.person_outline, 'Passenger', passengerName),
+          _requestDetailRow(Icons.my_location, 'Pickup', pickup),
+          _requestDetailRow(Icons.flag_outlined, 'Destination', destination),
+          _requestDetailRow(Icons.route_outlined, 'Estimated Distance', distanceText),
+          _requestDetailRow(
+            Icons.payments_outlined,
+            'Estimated Fare',
+            'K${ride.fareEstimate.toStringAsFixed(2)}',
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _isProcessingRideAction
+                      ? null
+                      : () => _acceptRideRequest(ride),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade800,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(54),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text(
+                    'Accept Ride',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isProcessingRideAction
+                      ? null
+                      : () => _rejectRideRequest(ride),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.green.shade800,
+                    side: BorderSide(color: Colors.green.shade800, width: 1.5),
+                    minimumSize: const Size.fromHeight(54),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text(
+                    'Reject',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _requestDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: const Color(0xFFE8F5E9),
+            child: Icon(icon, size: 19, color: Colors.green.shade800),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 118,
+            child: Text(
+              '$label:',
+              style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w700),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _passengerNameFromRide(RideRequestModel ride) {
+    final String name = ride.passengerName.trim();
+    if (name.isNotEmpty) {
+      return name;
+    }
+    return 'Passenger';
   }
 
   Widget _buildActiveRideSheet() {

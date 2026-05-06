@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Controls login session, user role detection, active fleet detection, and logout routing.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// AppSession controls the current authenticated user session.
+// It checks Firebase Authentication and Realtime Database to determine the user's role.
+// It then routes passengers, drivers, fleet admins, and super admins to the correct part of the app.
+// ---------------------------------------------------------------------------
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +27,7 @@ enum AppSessionStatus {
   unauthorized,
 }
 
+// Central session manager used by the whole app for role-based routing.
 class AppSession extends ChangeNotifier {
   static const String _lastSelectedRoleKey = 'lastSelectedRole';
 
@@ -95,6 +107,9 @@ class AppSession extends ChangeNotifier {
     return true;
   }
 
+
+  // Signs out the current user and clears role/session information.
+  // Signs out and clears current user, role, fleet, and driver session data.
   Future<void> signOut() async {
     if (selectedRole == AppRole.driver) {
       await _setDriverOffline();

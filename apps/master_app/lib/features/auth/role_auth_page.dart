@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Soltech Dart source file. Comments explain the main purpose and important code blocks.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Legacy role authentication page.
+// The app now uses WelcomeRolePage as the main unified entry screen.
+// This file is kept only to prevent old imports/routes from breaking.
+// ---------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 
 import '../../core/models/app_role.dart';

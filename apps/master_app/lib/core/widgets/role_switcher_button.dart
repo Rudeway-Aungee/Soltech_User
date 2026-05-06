@@ -1,3 +1,13 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Reusable widget used by more than one screen in the Soltech app.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Reusable UI widget for selecting a role.
+// The unified entry screen uses role cards/tabs for Passenger, Driver, and Fleet Control.
+// ---------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

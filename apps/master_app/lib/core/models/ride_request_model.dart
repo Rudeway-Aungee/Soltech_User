@@ -1,3 +1,13 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Data model that converts Firebase map data into safer Dart objects for the UI.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Data model file.
+// Models convert Firebase/database map data into Dart objects so the UI can use typed values safely.
+// ---------------------------------------------------------------------------
+
 import 'package:soltech_master_app/core/models/address_model.dart';
 
 class RideRequestModel {
@@ -5,6 +15,8 @@ class RideRequestModel {
     required this.id,
     required this.passengerId,
     required this.assignedDriverId,
+    this.passengerName = '',
+    this.passengerPhone = '',
     required this.serviceType,
     required this.status,
     required this.pickup,
@@ -34,6 +46,8 @@ class RideRequestModel {
   final String id;
   final String passengerId;
   final String? assignedDriverId;
+  final String passengerName;
+  final String passengerPhone;
   final String serviceType;
   final String serviceTypeKey;
   final String status;
@@ -76,6 +90,8 @@ class RideRequestModel {
       id: id,
       passengerId: _stringFrom(rawMap['passengerId']),
       assignedDriverId: _nullableStringFrom(rawMap['assignedDriverId']),
+      passengerName: _stringFrom(rawMap['passengerName']),
+      passengerPhone: _stringFrom(rawMap['passengerPhone']),
       serviceType: _stringFrom(rawMap['serviceType'], fallback: 'City Ride'),
       serviceTypeKey: _stringFrom(rawMap['serviceTypeKey']),
       status: _stringFrom(rawMap['status'], fallback: 'searching'),

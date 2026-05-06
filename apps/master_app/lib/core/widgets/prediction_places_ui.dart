@@ -1,3 +1,13 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Reusable widget used by more than one screen in the Soltech app.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Widget used to display one Google Places autocomplete prediction.
+// The passenger taps one of these results to choose a destination from search.
+// ---------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 
 import 'package:soltech_master_app/core/models/prediction_model.dart';

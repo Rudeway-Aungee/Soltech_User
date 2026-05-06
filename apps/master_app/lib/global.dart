@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Stores shared app-wide helper objects, map key, and temporary global values used by older screens.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Shared global values used by older parts of the project.
+// These are kept for compatibility with the existing pages and map helpers.
+// In a larger production app, many of these values would be moved into services or session state.
+// ---------------------------------------------------------------------------
+
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:soltech_master_app/core/services/associate_methods.dart';
 

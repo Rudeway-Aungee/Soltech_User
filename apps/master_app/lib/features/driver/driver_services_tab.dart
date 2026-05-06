@@ -1,3 +1,13 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Soltech Dart source file. Comments explain the main purpose and important code blocks.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Driver services tab placeholder/support screen.
+// It can be expanded later if drivers support multiple service categories.
+// ---------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 
 class ServicesTab extends StatelessWidget {

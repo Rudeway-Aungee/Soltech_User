@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Contains map helper logic: API requests, geocoding, place details, directions, and polyline decoding.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// GoogleMapMethods groups map-related helper functions.
+// It handles calling Google APIs, converting coordinates to readable addresses,
+// loading destination details, decoding route polylines, and calculating directions.
+// ---------------------------------------------------------------------------
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';

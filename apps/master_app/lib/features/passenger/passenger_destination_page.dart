@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Destination picker with search, multiple stops, and pin-on-map selection.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Passenger destination selection screen.
+// The passenger can search for a destination, add multiple stops, or use the map pin
+// to select an exact pickup/drop-off location before confirming the route.
+// ---------------------------------------------------------------------------
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -18,6 +29,7 @@ class SelectDestinationPage extends StatefulWidget {
   State<SelectDestinationPage> createState() => _SelectDestinationPageState();
 }
 
+// This State class manages the map pin, search field, selected stops, and destination confirmation.
 class _SelectDestinationPageState extends State<SelectDestinationPage> {
   final Completer<GoogleMapController> _mapController =
       Completer<GoogleMapController>();
@@ -66,6 +78,9 @@ class _SelectDestinationPageState extends State<SelectDestinationPage> {
     super.dispose();
   }
 
+
+  // Centers the destination map near the passenger's current location.
+  // Centers the map near the passenger so pinning/searching starts from the correct area.
   Future<void> _fetchUserLocation() async {
     try {
       final Position position = await Geolocator.getCurrentPosition(
@@ -87,6 +102,10 @@ class _SelectDestinationPageState extends State<SelectDestinationPage> {
     }
   }
 
+
+  // Converts the current map pin coordinates into a readable address.
+  // This supports the "Pin Destination on Map" feature.
+  // Converts the center map pin coordinates into a readable address.
   Future<void> _geocodeCameraPosition(LatLng position) async {
     if (!_isPinMode) {
       return;
@@ -139,6 +158,9 @@ class _SelectDestinationPageState extends State<SelectDestinationPage> {
     });
   }
 
+
+  // Sends the typed search text to Google Places Autocomplete and shows suggestions.
+  // Searches Google Places as the passenger types a destination.
   Future<void> _searchPlace(String input) async {
     final String trimmed = input.trim();
     final int token = ++_searchToken;
@@ -312,6 +334,10 @@ class _SelectDestinationPageState extends State<SelectDestinationPage> {
     }
   }
 
+
+  // Saves selected stops into AppInfo.
+  // Last selected stop becomes the final destination; earlier selected locations become intermediate stops.
+  // Saves route selection: last stop becomes destination; earlier stops become intermediate stops.
   void _confirmRoute() {
     if (_selectedStops.isEmpty) {
       associateMethods.showSnackBarMsg(

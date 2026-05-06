@@ -1,3 +1,13 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Reusable widget used by more than one screen in the Soltech app.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Reusable loading dialog widget.
+// It is shown while the app is waiting for Firebase, map, or authentication operations to finish.
+// ---------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 
 class LoadingDialog extends StatelessWidget {

@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Routes signed-in users to the correct dashboard depending on their role and approval status.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// AppGateway is the main routing gate after the app starts.
+// If the user is signed out, it shows the unified entry screen.
+// If the user is signed in, it opens the correct dashboard based on role and approval status.
+// ---------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:soltech_master_app/features/driver/driver_home_page.dart' as driver;

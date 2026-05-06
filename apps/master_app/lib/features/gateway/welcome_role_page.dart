@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: The main unified entry screen for Passenger, Driver, and Fleet Control users.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Unified entry screen for public users.
+// Passenger can login/register, Driver can login using Driver ID + password,
+// and Fleet Control can login/register for approval. Super Admin is kept separate for security.
+// ---------------------------------------------------------------------------
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +25,7 @@ class WelcomeRolePage extends StatefulWidget {
   State<WelcomeRolePage> createState() => _WelcomeRolePageState();
 }
 
+// Holds the currently selected role card and form state for the unified entry screen.
 class _WelcomeRolePageState extends State<WelcomeRolePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseDatabase _database = FirebaseDatabase.instance;
@@ -101,6 +113,9 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
     }
   }
 
+
+  // Passenger login from the unified entry screen.
+  // Logs in a passenger using email/phone and password from the Passenger tab.
   Future<void> _loginPassenger() async {
     await _runBusy(() async {
       final String loginValue = _passengerLoginController.text.trim();
@@ -119,6 +134,9 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
     });
   }
 
+
+  // Passenger registration from the unified entry screen.
+  // Registers a passenger and saves the profile under users in Firebase.
   Future<void> _registerPassenger() async {
     await _runBusy(() async {
       final String name = _passengerNameController.text.trim();
@@ -169,6 +187,10 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
     });
   }
 
+
+  // Driver login using Driver ID + password.
+  // The app looks up the real Firebase Auth email behind the scenes.
+  // Logs in a driver using Driver ID + password by looking up the driver email first.
   Future<void> _loginDriver() async {
     await _runBusy(() async {
       final String driverId = _driverIdController.text.trim().toUpperCase();
@@ -205,6 +227,9 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
     });
   }
 
+
+  // Fleet Control login from the unified entry screen.
+  // Logs in a Fleet Control user and lets AppGateway check approval status.
   Future<void> _loginFleetOwner() async {
     await _runBusy(() async {
       final String fleetName = _fleetLoginNameController.text.trim();
@@ -227,6 +252,10 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
     });
   }
 
+
+  // Fleet Control registration.
+  // New fleets start as pending until Super Admin approval.
+  // Registers a Fleet Control application with pending status for Super Admin approval.
   Future<void> _registerFleetOwner() async {
     await _runBusy(() async {
       final String ownerName = _fleetOwnerNameController.text.trim();

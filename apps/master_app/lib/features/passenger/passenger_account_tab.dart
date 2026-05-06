@@ -1,3 +1,13 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Shows passenger profile data loaded from Firebase.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Passenger account tab.
+// It loads the passenger's registered profile information from Firebase and shows account settings.
+// ---------------------------------------------------------------------------
+
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';

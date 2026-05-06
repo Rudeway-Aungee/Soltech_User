@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Main passenger map and booking workflow: Get a Ride, route summary, booking, searching, and active ride tracking.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Passenger Home screen and main booking workflow.
+// This screen shows the map, starts the Get a Ride process, confirms ride summaries,
+// creates ride requests, listens for driver assignment, and displays live ride status.
+// ---------------------------------------------------------------------------
+
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -28,6 +39,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+// This State class stores the live map, booking state, selected route, and active ride subscription.
 class _HomePageState extends State<HomePage> {
   final Completer<GoogleMapController> googleMapCompleterController =
       Completer<GoogleMapController>();
@@ -79,6 +91,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  // Chooses how much bottom padding the Google Map needs depending on the current booking stage.
   double get _currentBottomSheetHeight {
     if (_activeRideRequest != null) {
       return 430;
@@ -101,6 +114,10 @@ class _HomePageState extends State<HomePage> {
       _selectedIndex == 0 &&
       (_bookingStage == PassengerBookingStage.routeSummary || _activeRideRequest != null);
 
+
+  // Gets the passenger's current GPS position, moves the map camera there,
+  // converts the coordinates into a readable address, and restores any active ride.
+  // Step 1: Get the passenger current GPS position and store it as the pickup location.
   Future<void> getCurrentLocation() async {
     final Position userPosition = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
@@ -299,6 +316,10 @@ class _HomePageState extends State<HomePage> {
     return approved;
   }
 
+
+  // Opens the destination selection screen.
+  // The user can search, add stops, or pin a destination on the map.
+  // Step 2: Open the destination picker screen for search, pin destination, and multiple stops.
   Future<void> _openDestinationSelection() async {
     final AppInfo appInfo = Provider.of<AppInfo>(context, listen: false);
 
@@ -326,6 +347,10 @@ class _HomePageState extends State<HomePage> {
 
 
 
+
+  // Builds the route after the passenger confirms destination/stops.
+  // It asks the map service for directions, then draws markers and polylines on the map.
+  // Step 3: After destination confirmation, calculate/draw the route and show the ride summary.
   Future<void> _drawRouteOnMap() async {
     final AppInfo appInfo = Provider.of<AppInfo>(context, listen: false);
     final AddressModel? pickup = appInfo.userPickupLocation;
@@ -531,6 +556,10 @@ class _HomePageState extends State<HomePage> {
     return total;
   }
 
+
+  // Creates a ride request in Firebase.
+  // Drivers listen for rideRequests with status "searching" and can accept them.
+  // Step 4: Save the passenger ride request to Firebase so online drivers can see it.
   Future<void> _createRideRequest() async {
     final AppInfo appInfo = Provider.of<AppInfo>(context, listen: false);
     final AddressModel? pickup = appInfo.userPickupLocation;
@@ -578,8 +607,13 @@ class _HomePageState extends State<HomePage> {
         .toList();
 
     try {
+      final String passengerName = userName.trim().isNotEmpty ? userName.trim() : 'Passenger';
+      final String passengerPhone = userPhone.trim();
+
       await requestRef.set(<String, dynamic>{
         'passengerId': FirebaseAuth.instance.currentUser!.uid,
+        'passengerName': passengerName,
+        'passengerPhone': passengerPhone,
         'assignedDriverId': '',
         'serviceType': _selectedServiceType,
         'paymentMethod': _selectedPaymentMethod,
@@ -623,6 +657,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+
+  // Starts listening to this ride request so the passenger screen updates immediately
+  // when a driver accepts, arrives, starts, completes, or cancels the trip.
+  // Step 5: Listen in real time for driver acceptance, arrival, trip start, completion, or cancellation.
   void _listenToRideRequest(String requestId) {
     _activeRideRequestSubscription?.cancel();
 
@@ -647,6 +685,10 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+
+  // Updates the passenger UI whenever Firebase changes the ride status.
+  // This is what connects the passenger screen to driver actions in real time.
+  // Updates the passenger UI whenever the driver changes the trip status in Firebase.
   void _handleRideRequestUpdate(RideRequestModel ride) {
     final bool statusChanged = _lastObservedRideStatus != ride.status;
 
@@ -692,6 +734,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // Loads the assigned driver profile so passenger can see driver/vehicle details.
   Future<void> _loadAssignedDriver(String driverId) async {
     if (_assignedDriverProfile != null &&
         (_assignedDriverProfile!['id'] ?? '').toString() == driverId) {
@@ -715,6 +758,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // Listens to the accepted driver live location from onlineDrivers for passenger tracking.
   void _listenToAssignedDriverLocation(String driverId) {
     _driverLocationSubscription?.cancel();
 
@@ -773,6 +817,7 @@ class _HomePageState extends State<HomePage> {
     return double.parse(fare.toStringAsFixed(2));
   }
 
+  // Allows cancellation only while the system is still searching for a driver.
   Future<void> _cancelSearchingRideRequest() async {
     final RideRequestModel? ride = _activeRideRequest;
     if (ride == null || ride.status != 'searching') {
@@ -1219,6 +1264,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+
+  // Bottom sheet used after the ride request is created.
+  // It shows searching, driver assigned, arrived, trip progress, completed, or cancelled states.
+  // Active ride sheet: searching, driver found, arrived, in-progress, completed, or cancelled.
   Widget _buildRideStatusSheet() {
     final RideRequestModel ride = _activeRideRequest!;
 
@@ -1479,6 +1528,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+
+  // Bottom sheet shown after route confirmation.
+  // It displays distance, estimated time, fare, service type, payment method, and booking button.
+  // Ride summary sheet: final review before pressing Book Ride.
   Widget _buildConfirmedRouteSheet() {
     final AppInfo appInfo = Provider.of<AppInfo>(context, listen: true);
 
@@ -1897,6 +1950,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // Builds the main passenger Home tab with Google Map and the correct bottom sheet.
   Widget _buildHomeMap() {
     return Stack(
       children: [

@@ -1,3 +1,13 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Fleet Admin screen for creating and managing driver accounts.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Fleet Control driver management screen.
+// Fleet Admins create driver accounts, assign them to vehicles, and manage driver access.
+// ---------------------------------------------------------------------------
+
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 

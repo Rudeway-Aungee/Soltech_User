@@ -1,3 +1,13 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Soltech Dart source file. Comments explain the main purpose and important code blocks.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Driver destination/map page kept for driver-side navigation support.
+// Some map selection functionality is shared with passenger flow but used differently by drivers.
+// ---------------------------------------------------------------------------
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';

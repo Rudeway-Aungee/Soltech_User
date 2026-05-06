@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Fleet dashboard with vehicles, drivers, trips, earnings, and cash/digital ledger.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Fleet Control main dashboard.
+// Fleet Admins manage vehicles, view trips, monitor online drivers, track earnings,
+// review ledger totals, and manage the fleet after Super Admin approval.
+// ---------------------------------------------------------------------------
+
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +28,7 @@ class FleetControlHomePage extends StatefulWidget {
   State<FleetControlHomePage> createState() => _FleetControlHomePageState();
 }
 
+// Fleet Control State controls dashboard tabs and opens vehicle/profile dialogs.
 class _FleetControlHomePageState extends State<FleetControlHomePage> {
   int _selectedIndex = 0;
 
@@ -126,6 +138,7 @@ class _FleetControlHomePageState extends State<FleetControlHomePage> {
     );
   }
 
+  // Archives a vehicle instead of deleting it, so old trip records remain traceable.
   Future<void> _archiveVehicle(FleetVehicle vehicle) async {
     await _db.child('fleetVehicles/${vehicle.fleetId}/${vehicle.id}').update(<String, dynamic>{
       'status': 'archived',
@@ -553,6 +566,7 @@ class _FleetProfileEditorDialogState extends State<_FleetProfileEditorDialog> {
   }
 }
 
+// Dashboard tab summarizes fleet health: vehicles, online drivers, trips, and earnings.
 class _DashboardTab extends StatelessWidget {
   const _DashboardTab({
     required this.fleetId,
@@ -728,6 +742,7 @@ class _DashboardTab extends StatelessWidget {
   }
 }
 
+// Vehicles tab lists taxis registered under the fleet.
 class _VehiclesTab extends StatelessWidget {
   const _VehiclesTab({
     required this.fleetId,
@@ -791,6 +806,7 @@ class _VehiclesTab extends StatelessWidget {
   }
 }
 
+// Drivers tab lists driver accounts created by this Fleet Admin.
 class _DriversTab extends StatelessWidget {
   const _DriversTab({
     required this.fleetId,
@@ -914,6 +930,7 @@ class _DriverCard extends StatelessWidget {
   }
 }
 
+// Trips tab shows ride history linked to this fleet.
 class _TripsTab extends StatelessWidget {
   const _TripsTab({required this.fleetId});
 
@@ -1063,6 +1080,7 @@ class _SmallChip extends StatelessWidget {
   }
 }
 
+// Ledger tab shows cash/digital totals, commissions, and balances.
 class _LedgerTab extends StatelessWidget {
   const _LedgerTab({required this.fleetId});
 

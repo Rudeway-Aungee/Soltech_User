@@ -1,3 +1,13 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Soltech Dart source file. Comments explain the main purpose and important code blocks.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// Passenger services tab.
+// It shows supported service categories such as City Ride, Courier, Intercity, Rentals, and Hire.
+// ---------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 
 class ServicesTab extends StatelessWidget {

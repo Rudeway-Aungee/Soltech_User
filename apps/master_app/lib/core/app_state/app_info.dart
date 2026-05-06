@@ -1,3 +1,14 @@
+// CODE COMMENTS -------------------------------------------------------------
+// Purpose: Stores passenger pickup, destination, and stop selections so multiple screens can share trip state.
+// These comments are added for review/learning and do not change app behavior.
+// ---------------------------------------------------------------------------
+
+// BEGINNER NOTES ------------------------------------------------------------
+// AppInfo is shared passenger trip state.
+// It stores the current pickup, destination, and optional intermediate stops selected by the passenger.
+// Provider notifies screens when these locations change so the map and ride summary update automatically.
+// ---------------------------------------------------------------------------
+
 import 'package:flutter/cupertino.dart';
 import 'package:soltech_master_app/core/models/address_model.dart';
 
