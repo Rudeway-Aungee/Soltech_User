@@ -777,10 +777,18 @@ class _HomePageState extends State<HomePage> {
       _isProcessingRideAction = true;
     });
 
+    final int now = DateTime.now().millisecondsSinceEpoch;
+    final double fare = ride.fareEstimate;
+    final double platformCommission = double.parse((fare * 0.10).toStringAsFixed(2));
+    final double driverEarnings = nextStatus == 'completed'
+        ? double.parse((fare - platformCommission).toStringAsFixed(2))
+        : 0;
+    final double fleetEarnings = nextStatus == 'completed' ? fare : 0;
+
     final Map<String, dynamic> updates = <String, dynamic>{
       'status': nextStatus,
+      'updatedAt': now,
     };
-    final int now = DateTime.now().millisecondsSinceEpoch;
 
     switch (nextStatus) {
       case 'arrived':
@@ -790,21 +798,44 @@ class _HomePageState extends State<HomePage> {
         updates['startedAt'] = now;
         break;
       case 'completed':
-        updates['completedAt'] = now;
+        updates.addAll(<String, dynamic>{
+          'completedAt': now,
+          'finalFare': fare,
+          'paymentStatus': 'paid',
+          'driverEarnings': driverEarnings,
+          'fleetEarnings': fleetEarnings,
+          'platformCommission': platformCommission,
+          'completedDateKey': _dateKey(now),
+        });
         break;
       case 'cancelled':
-        updates['cancelledAt'] = now;
+        updates.addAll(<String, dynamic>{
+          'cancelledAt': now,
+          'paymentStatus': 'not_required',
+          'driverEarnings': 0,
+          'fleetEarnings': 0,
+          'platformCommission': 0,
+        });
         break;
     }
 
+    final DatabaseReference rideRef = FirebaseDatabase.instance
+        .ref()
+        .child('rideRequests')
+        .child(ride.id);
+
     try {
-      await FirebaseDatabase.instance
-          .ref()
-          .child('rideRequests')
-          .child(ride.id)
-          .update(updates);
+      await rideRef.update(updates);
 
       if (nextStatus == 'completed' || nextStatus == 'cancelled') {
+        final DatabaseEvent updatedEvent = await rideRef.once();
+        final RideRequestModel? updatedRide = RideRequestModel.fromSnapshotValue(
+          ride.id,
+          updatedEvent.snapshot.value,
+        );
+        if (updatedRide != null) {
+          await _recordRideHistoryAndEarnings(updatedRide);
+        }
         await _setDriverAvailability('available');
       } else {
         await _setDriverAvailability('busy');
@@ -825,6 +856,90 @@ class _HomePageState extends State<HomePage> {
         });
       }
     }
+  }
+
+  String _dateKey(int timestamp) {
+    final DateTime date = DateTime.fromMillisecondsSinceEpoch(timestamp).toLocal();
+    final String month = date.month.toString().padLeft(2, '0');
+    final String day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
+  Future<void> _recordRideHistoryAndEarnings(RideRequestModel ride) async {
+    final String driverId = ride.assignedDriverId ?? FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (driverId.isEmpty) {
+      return;
+    }
+
+    final int closedAt = ride.completedAt ?? ride.cancelledAt ?? DateTime.now().millisecondsSinceEpoch;
+    final double fare = ride.status == 'completed' ? ride.fareEstimate : 0;
+    final double platformCommission = ride.status == 'completed'
+        ? double.parse((fare * 0.10).toStringAsFixed(2))
+        : 0;
+    final double driverEarnings = ride.status == 'completed'
+        ? double.parse((fare - platformCommission).toStringAsFixed(2))
+        : 0;
+    final String paymentMethod = ride.paymentMethod.toLowerCase().trim().isEmpty
+        ? 'cash'
+        : ride.paymentMethod.toLowerCase().trim();
+
+    final Map<String, dynamic> historyPayload = ride.toHistoryMap()
+      ..addAll(<String, dynamic>{
+        'closedAt': closedAt,
+        'dateKey': _dateKey(closedAt),
+        'fare': fare,
+        'driverEarnings': driverEarnings,
+        'fleetEarnings': fare,
+        'platformCommission': platformCommission,
+        'paymentMethod': paymentMethod,
+        'paymentStatus': ride.status == 'completed' ? 'paid' : 'not_required',
+      });
+
+    final Map<String, dynamic> updates = <String, dynamic>{
+      'tripHistory/passengers/${ride.passengerId}/${ride.id}': historyPayload,
+      'tripHistory/drivers/$driverId/${ride.id}': historyPayload,
+      'earnings/drivers/$driverId/${ride.id}': <String, dynamic>{
+        'rideId': ride.id,
+        'status': ride.status,
+        'grossFare': fare,
+        'platformCommission': platformCommission,
+        'driverEarnings': driverEarnings,
+        'paymentMethod': paymentMethod,
+        'dateKey': _dateKey(closedAt),
+        'closedAt': closedAt,
+      },
+    };
+
+    if (ride.fleetId.isNotEmpty) {
+      updates['tripHistory/fleets/${ride.fleetId}/${ride.id}'] = historyPayload;
+      updates['earnings/fleets/${ride.fleetId}/${ride.id}'] = <String, dynamic>{
+        'rideId': ride.id,
+        'driverId': driverId,
+        'vehicleId': ride.vehicleId,
+        'status': ride.status,
+        'grossFare': fare,
+        'platformCommission': platformCommission,
+        'fleetEarnings': fare,
+        'paymentMethod': paymentMethod,
+        'dateKey': _dateKey(closedAt),
+        'closedAt': closedAt,
+      };
+      updates['ledgers/fleets/${ride.fleetId}/${ride.id}'] = <String, dynamic>{
+        'rideId': ride.id,
+        'driverId': driverId,
+        'vehicleId': ride.vehicleId,
+        'paymentMethod': paymentMethod,
+        'cashCollected': paymentMethod == 'cash' && ride.status == 'completed' ? fare : 0,
+        'digitalAmount': paymentMethod != 'cash' && ride.status == 'completed' ? fare : 0,
+        'platformCommission': platformCommission,
+        'driverCashDebt': paymentMethod == 'cash' && ride.status == 'completed' ? platformCommission : 0,
+        'status': ride.status,
+        'dateKey': _dateKey(closedAt),
+        'closedAt': closedAt,
+      };
+    }
+
+    await FirebaseDatabase.instance.ref().update(updates);
   }
 
   void _cacheDriverProfile(DriverProfileModel profile) {

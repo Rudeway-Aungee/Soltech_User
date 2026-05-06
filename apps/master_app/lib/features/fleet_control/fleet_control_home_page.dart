@@ -919,45 +919,146 @@ class _TripsTab extends StatelessWidget {
 
   final String fleetId;
 
+  String _formatTimestamp(int? timestamp) {
+    if (timestamp == null || timestamp == 0) return 'Unknown time';
+    final DateTime date = DateTime.fromMillisecondsSinceEpoch(timestamp).toLocal();
+    final String month = date.month.toString().padLeft(2, '0');
+    final String day = date.day.toString().padLeft(2, '0');
+    final String hour = date.hour.toString().padLeft(2, '0');
+    final String minute = date.minute.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day $hour:$minute';
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DatabaseEvent>(
       stream: FirebaseDatabase.instance.ref('rideRequests').orderByChild('fleetId').equalTo(fleetId).onValue,
       builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
-        final List<RideRequestModel> rides = _parseChildren<RideRequestModel>(snapshot.data?.snapshot.value, RideRequestModel.fromSnapshotValue)
-          ..sort((RideRequestModel a, RideRequestModel b) => b.createdAt.compareTo(a.createdAt));
+        final List<RideRequestModel> rides = _parseChildren<RideRequestModel>(
+          snapshot.data?.snapshot.value,
+          RideRequestModel.fromSnapshotValue,
+        )..sort((RideRequestModel a, RideRequestModel b) {
+            final int aTime = a.completedAt ?? a.cancelledAt ?? a.createdAt;
+            final int bTime = b.completedAt ?? b.cancelledAt ?? b.createdAt;
+            return bTime.compareTo(aTime);
+          });
 
-        if (rides.isEmpty) {
-          return const _EmptyState(icon: Icons.route_outlined, title: 'No trips yet', body: 'Completed and active trips for your fleet will appear here.');
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
         }
 
-        return ListView.separated(
+        if (rides.isEmpty) {
+          return const _EmptyState(
+            icon: Icons.route_outlined,
+            title: 'No trips yet',
+            body: 'Active, completed, and cancelled trips for your fleet will appear here.',
+          );
+        }
+
+        final double completedEarnings = rides
+            .where((RideRequestModel ride) => ride.status == 'completed')
+            .fold<double>(0, (double total, RideRequestModel ride) => total + ride.fareEstimate);
+        final int completedTrips = rides.where((RideRequestModel ride) => ride.status == 'completed').length;
+        final int activeTrips = rides.where((RideRequestModel ride) => !ride.isTerminal).length;
+
+        return ListView(
           padding: const EdgeInsets.all(16),
-          itemCount: rides.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
-          itemBuilder: (BuildContext context, int index) {
-            final RideRequestModel ride = rides[index];
-            return _Panel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: Text('Trip ${ride.id}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900))),
-                      _StatusPill(label: ride.status),
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(child: _MetricCard(label: 'Active', value: activeTrips.toString(), icon: Icons.route_outlined, color: SoltechColors.amber)),
+                const SizedBox(width: 10),
+                Expanded(child: _MetricCard(label: 'Completed', value: completedTrips.toString(), icon: Icons.check_circle_outline, color: SoltechColors.green)),
+                const SizedBox(width: 10),
+                Expanded(child: _MetricCard(label: 'Earnings', value: 'K${completedEarnings.toStringAsFixed(2)}', icon: Icons.payments_outlined, color: SoltechColors.ink)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...rides.map((RideRequestModel ride) {
+              final int timestamp = ride.completedAt ?? ride.cancelledAt ?? ride.createdAt;
+              final String driverName = (ride.assignedDriver['name'] ?? '').toString().trim();
+              final String vehicle = <String>[
+                (ride.assignedDriver['vehicleColor'] ?? '').toString().trim(),
+                (ride.assignedDriver['vehicleModel'] ?? '').toString().trim(),
+                (ride.assignedDriver['plateNumber'] ?? '').toString().trim(),
+              ].where((String value) => value.isNotEmpty).join(' • ');
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _Panel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              _formatTimestamp(timestamp),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                          _StatusPill(label: ride.status),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _MiniRow(icon: Icons.my_location, label: ride.pickup.humanReadableAddress ?? ride.pickup.placeName ?? 'Pickup'),
+                      _MiniRow(icon: Icons.location_on, label: ride.destination.humanReadableAddress ?? ride.destination.placeName ?? 'Destination'),
+                      if (ride.stops.isNotEmpty) _MiniRow(icon: Icons.add_location_alt_outlined, label: '${ride.stops.length} stop(s)'),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: <Widget>[
+                          _SmallChip(icon: Icons.route, label: '${(ride.routeMeters / 1000).toStringAsFixed(1)} km'),
+                          _SmallChip(icon: Icons.payments_outlined, label: 'K${ride.fareEstimate.toStringAsFixed(2)}'),
+                          _SmallChip(icon: Icons.credit_card, label: ride.paymentMethod.toUpperCase()),
+                          _SmallChip(icon: Icons.local_taxi, label: ride.serviceType),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (driverName.isNotEmpty || vehicle.isNotEmpty)
+                        Text(
+                          [driverName, vehicle].where((String value) => value.isNotEmpty).join(' • '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: SoltechColors.muted, fontWeight: FontWeight.w700),
+                        ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  _MiniRow(icon: Icons.my_location, label: ride.pickup.humanReadableAddress ?? ride.pickup.placeName ?? 'Pickup'),
-                  _MiniRow(icon: Icons.location_on, label: ride.destination.humanReadableAddress ?? ride.destination.placeName ?? 'Destination'),
-                  const SizedBox(height: 8),
-                  Text('${(ride.routeMeters / 1000).toStringAsFixed(1)} km • K${ride.fareEstimate.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                ],
-              ),
-            );
-          },
+                ),
+              );
+            }),
+          ],
         );
       },
+    );
+  }
+}
+
+class _SmallChip extends StatelessWidget {
+  const _SmallChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: SoltechColors.canvas,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 14, color: SoltechColors.ink),
+          const SizedBox(width: 5),
+          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+        ],
+      ),
     );
   }
 }

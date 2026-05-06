@@ -98,7 +98,7 @@ class ActivityTab extends StatelessWidget {
               .fold<double>(
                 0,
                 (double total, RideRequestModel ride) =>
-                    total + ride.fareEstimate,
+                    total + (ride.driverEarnings > 0 ? ride.driverEarnings : ride.fareEstimate),
               );
           final int completedTrips = rides
               .where((RideRequestModel ride) => ride.status == 'completed')
@@ -124,7 +124,7 @@ class ActivityTab extends StatelessWidget {
                   Expanded(
                     child: _summaryCard(
                       title: 'Earnings',
-                      value: '\$${totalEarnings.toStringAsFixed(2)}',
+                      value: 'K${totalEarnings.toStringAsFixed(2)}',
                       color: Colors.green,
                     ),
                   ),
@@ -252,13 +252,13 @@ class ActivityTab extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                '${(ride.routeMeters / 1000).toStringAsFixed(1)} km',
+                                '${(ride.routeMeters / 1000).toStringAsFixed(1)} km • ${ride.paymentMethod.toUpperCase()} • ${ride.serviceType}',
                                 style: const TextStyle(color: Colors.grey),
                               ),
                             ),
                             Text(
                               completed
-                                  ? '\$${ride.fareEstimate.toStringAsFixed(2)}'
+                                  ? 'K${(ride.driverEarnings > 0 ? ride.driverEarnings : ride.fareEstimate).toStringAsFixed(2)}'
                                   : 'No earnings',
                               style: TextStyle(
                                 color: completed

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -106,19 +107,43 @@ class _AccountTabState extends State<AccountTab> {
   @override
   Widget build(BuildContext context) {
     final User? currentUser = FirebaseAuth.instance.currentUser;
-    final String userEmail = currentUser?.email ?? 'Unknown Email';
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Account', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: false,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
+    if (currentUser == null) {
+      return const Scaffold(
+        body: Center(child: Text('Sign in to view your account.')),
+      );
+    }
+
+    return StreamBuilder<DatabaseEvent>(
+      stream: FirebaseDatabase.instance.ref('users/${currentUser.uid}').onValue,
+      builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
+        final Map<Object?, Object?> userMap =
+            snapshot.data?.snapshot.value is Map
+                ? Map<Object?, Object?>.from(snapshot.data!.snapshot.value as Map)
+                : <Object?, Object?>{};
+
+        final String displayName = (userMap['name'] ?? userName).toString().trim();
+        final String displayPhone = (userMap['phone'] ?? userPhone).toString().trim();
+        final String displayEmail = (userMap['email'] ?? currentUser.email ?? 'Unknown Email').toString().trim();
+
+        if (displayName.isNotEmpty) {
+          userName = displayName;
+        }
+        if (displayPhone.isNotEmpty) {
+          userPhone = displayPhone;
+        }
+
+        return Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: AppBar(
+            title: const Text('Account', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.white,
+            elevation: 0,
+            centerTitle: false,
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: [
           // Profile Header
           Center(
             child: Column(
@@ -151,7 +176,7 @@ class _AccountTabState extends State<AccountTab> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  userName.isNotEmpty ? userName : 'User Name',
+                  displayName.isNotEmpty ? displayName : 'User Name',
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -182,13 +207,13 @@ class _AccountTabState extends State<AccountTab> {
                 ListTile(
                   leading: const Icon(Icons.phone, color: Colors.grey),
                   title: const Text('Mobile Number', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                  subtitle: Text(userPhone.isNotEmpty ? userPhone : 'Not Set', style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
+                  subtitle: Text(displayPhone.isNotEmpty ? displayPhone : 'Not Set', style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
                 ),
                 const Divider(height: 1, thickness: 1),
                 ListTile(
                   leading: const Icon(Icons.email, color: Colors.grey),
                   title: const Text('Email', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                  subtitle: Text(userEmail, style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
+                  subtitle: Text(displayEmail, style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500)),
                 ),
                 const Divider(height: 1, thickness: 1),
                 ListTile(
@@ -236,8 +261,10 @@ class _AccountTabState extends State<AccountTab> {
               ],
             ),
           ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
