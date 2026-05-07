@@ -80,6 +80,21 @@
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"
-        }
+        },
+        {
+      "name": "Soltech Web",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "apps/master_app",
+      "program": "apps/master_app/lib/main.dart",
+      "deviceId": "chrome"
+    },
+    {
+      "name": "Soltech Android",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "apps/master_app",
+      "program": "apps/master_app/lib/main.dart"
+    }
     ]
 }

@@ -488,6 +488,7 @@ class _HomePageState extends State<HomePage> {
         .child(currentUser.uid)
         .set(<String, dynamic>{
           'driverId': currentUser.uid,
+          'driverName': _driverProfile?.name ?? '',
           'latitude': _currentPosition!.latitude,
           'longitude': _currentPosition!.longitude,
           'heading': _currentPosition!.heading,
@@ -537,6 +538,7 @@ class _HomePageState extends State<HomePage> {
           .child(currentUser.uid)
           .update(<String, dynamic>{
             'availabilityStatus': status,
+            'driverName': _driverProfile?.name ?? '',
             'updatedAt': now,
             'latitude': _currentPosition!.latitude,
             'longitude': _currentPosition!.longitude,

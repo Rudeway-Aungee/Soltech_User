@@ -10,6 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -27,8 +28,20 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  if (await Permission.locationWhenInUse.isDenied) {
-    await Permission.locationWhenInUse.request();
+  // Web note:
+  // permission_handler is mainly for mobile platform permissions.
+  // Calling it during Flutter Web startup can stop the app before the
+  // first screen renders, leaving Chrome on a blank white page.
+  // For web, the browser asks for location permission only when a map/GPS
+  // feature actually requests the current position.
+  if (!kIsWeb) {
+    try {
+      if (await Permission.locationWhenInUse.isDenied) {
+        await Permission.locationWhenInUse.request();
+      }
+    } catch (_) {
+      // Do not block app startup if permission handling fails.
+    }
   }
 
   runApp(const SoltechMasterApp());

@@ -11,6 +11,7 @@
 
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/design_system/app_theme.dart';
@@ -671,24 +672,7 @@ class _DashboardTab extends StatelessWidget {
                   children: [
                     const Text('Live Fleet Map', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 10),
-                    Container(
-                      height: 180,
-                      decoration: BoxDecoration(
-                        color: SoltechColors.green.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: SoltechColors.line),
-                      ),
-                      child: const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.map_outlined, size: 42, color: SoltechColors.green),
-                            SizedBox(height: 8),
-                            Text('Live taxi locations appear here when drivers are online.', textAlign: TextAlign.center, style: TextStyle(color: SoltechColors.muted)),
-                          ],
-                        ),
-                      ),
-                    ),
+                    _LiveFleetMap(fleetId: fleetId),
                   ],
                 ),
               ),
@@ -740,6 +724,217 @@ class _DashboardTab extends StatelessWidget {
       digitalLedger: digitalLedger,
     );
   }
+}
+
+
+// Live map for Fleet Control dashboard.
+// It listens to onlineDrivers for this fleet and places a taxi marker for each online driver.
+class _LiveFleetMap extends StatelessWidget {
+  const _LiveFleetMap({required this.fleetId});
+
+  final String fleetId;
+
+  static const LatLng _madangCenter = LatLng(-5.2269, 145.7907);
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        height: 210,
+        child: StreamBuilder<DatabaseEvent>(
+          stream: FirebaseDatabase.instance
+              .ref('onlineDrivers')
+              .orderByChild('fleetId')
+              .equalTo(fleetId)
+              .onValue,
+          builder: (BuildContext context, AsyncSnapshot<DatabaseEvent> snapshot) {
+            final List<_FleetMapDriver> drivers = _parseOnlineDrivers(
+              snapshot.data?.snapshot.value,
+            );
+            final LatLng center = drivers.isEmpty
+                ? _madangCenter
+                : LatLng(drivers.first.latitude, drivers.first.longitude);
+            final Set<Marker> markers = drivers
+                .map(
+                  (_FleetMapDriver driver) => Marker(
+                    markerId: MarkerId(driver.driverId),
+                    position: LatLng(driver.latitude, driver.longitude),
+                    infoWindow: InfoWindow(
+                      title: driver.driverName.isEmpty
+                          ? 'Online Driver'
+                          : driver.driverName,
+                      snippet: driver.statusLabel,
+                    ),
+                    icon: BitmapDescriptor.defaultMarkerWithHue(
+                      driver.availabilityStatus == 'busy'
+                          ? BitmapDescriptor.hueOrange
+                          : BitmapDescriptor.hueGreen,
+                    ),
+                  ),
+                )
+                .toSet();
+
+            return Stack(
+              children: [
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: center,
+                    zoom: drivers.isEmpty ? 13 : 15,
+                  ),
+                  markers: markers,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  compassEnabled: false,
+                  mapToolbarEnabled: false,
+                  liteModeEnabled: true,
+                ),
+                Positioned(
+                  left: 12,
+                  top: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.local_taxi,
+                          color: SoltechColors.green,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${drivers.length} online',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: SoltechColors.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (drivers.isEmpty)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        alignment: Alignment.center,
+                        color: Colors.white.withValues(alpha: 0.58),
+                        child: const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.map_outlined, size: 44, color: SoltechColors.green),
+                            SizedBox(height: 8),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 20),
+                              child: Text(
+                                'Live taxi locations appear here when drivers are online.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: SoltechColors.muted,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  static List<_FleetMapDriver> _parseOnlineDrivers(Object? value) {
+    if (value is! Map) {
+      return <_FleetMapDriver>[];
+    }
+
+    final Map<Object?, Object?> rawMap = Map<Object?, Object?>.from(value);
+    final List<_FleetMapDriver> drivers = <_FleetMapDriver>[];
+
+    rawMap.forEach((Object? key, Object? driverValue) {
+      if (driverValue is! Map) {
+        return;
+      }
+
+      final Map<Object?, Object?> data = Map<Object?, Object?>.from(driverValue);
+      final double latitude = _toDouble(data['latitude']);
+      final double longitude = _toDouble(data['longitude']);
+
+      if (latitude == 0 || longitude == 0) {
+        return;
+      }
+
+      drivers.add(
+        _FleetMapDriver(
+          driverId: (data['driverId'] ?? key ?? '').toString(),
+          driverName: (data['driverName'] ?? data['name'] ?? '').toString(),
+          availabilityStatus: (data['availabilityStatus'] ?? 'available').toString(),
+          latitude: latitude,
+          longitude: longitude,
+          updatedAt: _toInt(data['updatedAt']),
+        ),
+      );
+    });
+
+    drivers.sort((_FleetMapDriver a, _FleetMapDriver b) => b.updatedAt.compareTo(a.updatedAt));
+    return drivers;
+  }
+
+  static double _toDouble(Object? value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse((value ?? '').toString()) ?? 0;
+  }
+
+  static int _toInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return int.tryParse((value ?? '').toString()) ?? 0;
+  }
+}
+
+class _FleetMapDriver {
+  const _FleetMapDriver({
+    required this.driverId,
+    required this.driverName,
+    required this.availabilityStatus,
+    required this.latitude,
+    required this.longitude,
+    required this.updatedAt,
+  });
+
+  final String driverId;
+  final String driverName;
+  final String availabilityStatus;
+  final double latitude;
+  final double longitude;
+  final int updatedAt;
+
+  String get statusLabel => availabilityStatus == 'busy'
+      ? 'Busy on trip'
+      : 'Available for requests';
 }
 
 // Vehicles tab lists taxis registered under the fleet.

@@ -6,6 +6,7 @@ environment:
 
 workspace:
   - apps/master_app
+  - apps/passenger_app
 
 dev_dependencies:
   melos: ^7.5.1

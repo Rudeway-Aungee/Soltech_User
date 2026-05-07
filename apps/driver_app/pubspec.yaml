@@ -1,7 +1,6 @@
 name: soltech_driver_app
 description: "Soltech driver application."
 publish_to: 'none'
-resolution: workspace
 
 version: 1.0.0+1
 
