@@ -1,46 +1,124 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
+# ---------------------------------------------------------------------------
+# SOLTECH SECURITY + FLUTTER MONOREPO .gitignore
+# ---------------------------------------------------------------------------
 
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
+# Dart / Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+# Flutter generated plugin files
+**/GeneratedPluginRegistrant.*
+**/generated_plugin_registrant.*
 **/.dart_tool/
-**/.flutter-plugins-dependencies
-**/.pub-cache/
-**/.pub/
 **/build/
-**/coverage/
-**/pubspec_overrides.yaml
 
-# Symbolication related
-app.*.symbols
+# Android / Gradle
+.gradle/
+**/.gradle/
+**/android/.gradle/
+**/android/local.properties
+**/android/captures/
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
 
-# Obfuscation related
-app.*.map.json
+# Android signing keys - VERY IMPORTANT
+**/android/key.properties
+**/key.properties
+*.jks
+*.keystore
+*.p12
+*.pem
 
-# Android Studio will place build artifacts here
-**/android/app/debug
-**/android/app/profile
-**/android/app/release
+# iOS / macOS generated files
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral/
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/macos/Flutter/ephemeral/
+**/macos/Pods/
+
+# Xcode user files
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+DerivedData/
+
+# Web build output
+**/web/.dart_tool/
+**/build/web/
+
+# Firebase Admin / backend secrets - VERY IMPORTANT
+serviceAccountKey.json
+*service-account*.json
+*serviceAccount*.json
+firebase-adminsdk*.json
+adminsdk*.json
+google-cloud-key.json
+gcloud-key.json
+
+# Environment files - VERY IMPORTANT
+.env
+.env.*
+*.env
+!.env.example
+
+# API key / secret local config files
+secrets.json
+secrets.yaml
+secrets.yml
+config.secret.json
+local_config.dart
+local_secrets.dart
+api_keys.dart
+api_keys_local.dart
+
+# Backend dependencies and build output
+backend/node_modules/
+backend/.env
+backend/.env.*
+backend/dist/
+backend/build/
+backend/logs/
+backend/*.log
+
+# Firebase local emulator data
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+database-debug.log
+
+# IDE / editor files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
