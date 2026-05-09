@@ -31,6 +31,7 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
   final FirebaseDatabase _database = FirebaseDatabase.instance;
 
   int _selected = 0; // 0: Passenger, 1: Driver, 2: Fleet Control
+  final PageController _rolePageController = PageController(initialPage: 0);
 
   bool _passengerRegister = false;
   bool _fleetRegister = false;
@@ -65,6 +66,7 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
 
   @override
   void dispose() {
+    _rolePageController.dispose();
     _passengerLoginController.dispose();
     _passengerLoginPasswordController.dispose();
     _passengerNameController.dispose();
@@ -471,16 +473,49 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
     return Scaffold(
       backgroundColor: SoltechColors.canvas,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+        child: Column(
           children: [
-            _buildHeader(),
-            const SizedBox(height: 20),
-            _buildSegmentedControl(),
-            const SizedBox(height: 22),
-            if (_selected == 0) _buildPassengerCard(),
-            if (_selected == 1) _buildDriverCard(),
-            if (_selected == 2) _buildFleetCard(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              child: _buildHeader(),
+            ),
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: _buildRoleIndicator(),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: PageView(
+                controller: _rolePageController,
+                physics: _isBusy
+                    ? const NeverScrollableScrollPhysics()
+                    : const BouncingScrollPhysics(),
+                onPageChanged: (int page) {
+                  FocusScope.of(context).unfocus();
+                  setState(() {
+                    _selected = page;
+                  });
+                },
+                children: [
+                  _buildEntryPage(
+                    accentIcon: Icons.person_outline,
+                    accentLabel: 'Passenger Access',
+                    child: _buildPassengerCard(),
+                  ),
+                  _buildEntryPage(
+                    accentIcon: Icons.badge_outlined,
+                    accentLabel: 'Driver Access',
+                    child: _buildDriverCard(),
+                  ),
+                  _buildEntryPage(
+                    accentIcon: Icons.apartment_outlined,
+                    accentLabel: 'Fleet Control',
+                    child: _buildFleetCard(),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -518,56 +553,165 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
     );
   }
 
-  Widget _buildSegmentedControl() {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: SoltechColors.line),
-        color: Colors.white,
-      ),
-      child: Row(
-        children: List<Widget>.generate(3, (int idx) {
-          final bool active = _selected == idx;
-          final BorderRadius radius = idx == 0
-              ? const BorderRadius.only(
-                  topLeft: Radius.circular(10),
-                  bottomLeft: Radius.circular(10),
-                )
-              : idx == 2
-                  ? const BorderRadius.only(
-                      topRight: Radius.circular(10),
-                      bottomRight: Radius.circular(10),
-                    )
-                  : BorderRadius.zero;
+  Future<void> _goToRole(int index) async {
+    FocusScope.of(context).unfocus();
 
-          final String label = <String>['Passenger', 'Driver', 'Fleet Control'][idx];
+    if (_isBusy || _selected == index) {
+      return;
+    }
 
-          return Expanded(
-            child: InkWell(
-              borderRadius: radius,
-              onTap: _isBusy
-                  ? null
-                  : () => setState(() {
-                        _selected = idx;
-                      }),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: active ? SoltechColors.ink : Colors.white,
-                  borderRadius: radius,
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                alignment: Alignment.center,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: active ? Colors.white : SoltechColors.ink,
-                    fontWeight: FontWeight.w700,
+    setState(() {
+      _selected = index;
+    });
+
+    await _rolePageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Widget _buildRoleIndicator() {
+    final List<String> labels = <String>[
+      'Passenger',
+      'Driver',
+      'Fleet Control',
+    ];
+
+    return Column(
+      children: [
+        Row(
+          children: List<Widget>.generate(labels.length, (int index) {
+            final bool active = _selected == index;
+            return Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: _isBusy ? null : () => _goToRole(index),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        width: active ? 14 : 10,
+                        height: active ? 14 : 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: active ? SoltechColors.green : Colors.white,
+                          border: Border.all(
+                            color: active ? SoltechColors.green : SoltechColors.line,
+                            width: active ? 2 : 1.5,
+                          ),
+                          boxShadow: active
+                              ? const [
+                                  BoxShadow(
+                                    color: Color(0x3316A34A),
+                                    blurRadius: 10,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: active ? SoltechColors.ink : SoltechColors.muted,
+                          fontSize: active ? 13 : 12,
+                          fontWeight: active ? FontWeight.w900 : FontWeight.w600,
+                        ),
+                        child: Text(labels[index]),
+                      ),
+                    ],
                   ),
                 ),
               ),
+            );
+          }),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Swipe left or right to switch entry',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: SoltechColors.muted.withOpacity(0.78),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEntryPage({
+    required IconData accentIcon,
+    required String accentLabel,
+    required Widget child,
+  }) {
+    return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Container(
+            decoration: BoxDecoration(
+              color: SoltechColors.surface,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: SoltechColors.line),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x14000000),
+                  blurRadius: 26,
+                  offset: Offset(0, 16),
+                ),
+              ],
             ),
-          );
-        }),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEAF7EF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        accentIcon,
+                        size: 18,
+                        color: SoltechColors.green,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        accentLabel,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: SoltechColors.muted,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                child,
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -3,98 +3,36 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Dart",
-            "type": "dart",
-            "request": "launch",
-            "program": "bin/main.dart"
-        },
-        {
-            "name": "Dart",
-            "type": "dart",
-            "request": "launch",
-            "program": "bin/main.dart"
-        },
-        {
-            "name": "Soltech_User",
-            "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "passenger_app",
-            "cwd": "apps\\passenger_app",
-            "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "passenger_app (profile mode)",
-            "cwd": "apps\\passenger_app",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "passenger_app (release mode)",
-            "cwd": "apps\\passenger_app",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "release"
-        },
-        {
-            "name": "driver_app",
-            "cwd": "apps\\driver_app",
-            "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "driver_app (profile mode)",
-            "cwd": "apps\\driver_app",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "driver_app (release mode)",
-            "cwd": "apps\\driver_app",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "release"
-        },
-        {
-            "name": "master_app",
-            "cwd": "apps\\master_app",
-            "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "master_app (profile mode)",
-            "cwd": "apps\\master_app",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "master_app (release mode)",
-            "cwd": "apps\\master_app",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "release"
-        },
-        {
-      "name": "Soltech Web",
+  "configurations": [
+    {
+      "name": "Master App - Android",
       "request": "launch",
       "type": "dart",
       "cwd": "apps/master_app",
-      "program": "apps/master_app/lib/main.dart",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "Master App - Chrome Web",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "apps/master_app",
+      "program": "lib/main.dart",
       "deviceId": "chrome"
     },
     {
-      "name": "Soltech Android",
+      "name": "Driver App - Android",
       "request": "launch",
       "type": "dart",
-      "cwd": "apps/master_app",
-      "program": "apps/master_app/lib/main.dart"
+      "cwd": "apps/driver_app",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "Fleet Admin - Android",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "apps/fleet_admin",
+      "program": "lib/main.dart"
     }
-    ]
+  ]
+
 }

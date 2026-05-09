@@ -55,6 +55,20 @@ class _HomePageState extends State<HomePage> {
   String _selectedServiceType = 'City Ride';
   String _selectedPaymentMethod = 'Cash';
 
+  // Startup safety guards.
+  // These prevent the passenger screen from restoring an old "searching" request
+  // and also stop a ride request from being created unless the passenger has
+  // manually confirmed a destination in this screen session.
+  static const Set<String> _restorableRideStatuses = <String>{
+    'accepted',
+    'arrived',
+    'in_progress',
+  };
+  bool _hasLoadedCurrentLocation = false;
+  bool _routeConfirmedByPassenger = false;
+  bool _isCreatingRideRequest = false;
+  String? _currentSessionRideRequestId;
+
   final Map<String, bool> _driverApprovalCache = <String, bool>{};
   StreamSubscription<DatabaseEvent>? _activeRideRequestSubscription;
   StreamSubscription<DatabaseEvent>? _driverLocationSubscription;
@@ -65,7 +79,23 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
+      // Important: when the passenger home opens, only the pickup should be
+      // detected automatically. Destination/route/request must remain empty
+      // until the passenger taps Search Destination and confirms a route.
+      Provider.of<AppInfo>(context, listen: false).clearTripSelection();
+
       setState(() {
+        _bookingStage = PassengerBookingStage.overview;
+        _activeRideRequest = null;
+        _lastObservedRideStatus = null;
+        _routeConfirmedByPassenger = false;
+        _currentSessionRideRequestId = null;
+        _confirmedEncodedPolyline = '';
+        _confirmedRouteMeters = 0;
+        _confirmedRouteSeconds = 0;
+        homeMapMarkers = <Marker>{};
+        homeMapPolylines = <Polyline>{};
         bottomMapPadding = _currentBottomSheetHeight;
       });
     });
@@ -102,6 +132,13 @@ class _HomePageState extends State<HomePage> {
       (_bookingStage == PassengerBookingStage.routeSummary || _activeRideRequest != null);
 
   Future<void> getCurrentLocation() async {
+    // GoogleMap can be rebuilt on Android/Web. Do not run the startup
+    // location + ride-restore logic more than once.
+    if (_hasLoadedCurrentLocation) {
+      return;
+    }
+    _hasLoadedCurrentLocation = true;
+
     final Position userPosition = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
@@ -181,24 +218,53 @@ class _HomePageState extends State<HomePage> {
     );
 
     RideRequestModel? mostRecentActiveRide;
+    final int now = DateTime.now().millisecondsSinceEpoch;
 
-    requests.forEach((Object? key, Object? value) {
+    for (final MapEntry<Object?, Object?> entry in requests.entries) {
       final RideRequestModel? ride = RideRequestModel.fromSnapshotValue(
-        key.toString(),
-        value,
+        entry.key.toString(),
+        entry.value,
       );
 
       if (ride == null || ride.isTerminal) {
-        return;
+        continue;
+      }
+
+      // Do NOT restore a plain searching request on app startup.
+      // This was the bug that made the passenger screen look like it had
+      // automatically selected a destination and started looking for a driver
+      // as soon as the current GPS location was detected.
+      if (ride.status == 'searching') {
+        // Cancel it immediately so drivers stop seeing an old request.
+        // Searching is allowed only after the passenger presses Book Ride in
+        // the current screen session.
+        FirebaseDatabase.instance
+            .ref()
+            .child('rideRequests')
+            .child(ride.id)
+            .update(<String, dynamic>{
+          'status': 'cancelled',
+          'cancelledAt': now,
+          'cancelReason': 'searching_request_not_restored_on_startup',
+        }).catchError((Object _) {});
+        continue;
+      }
+
+      // Only restore a ride that is already assigned/in progress.
+      // The passenger should never enter searching mode unless they press
+      // Book Ride in the current session.
+      if (!_restorableRideStatuses.contains(ride.status)) {
+        continue;
       }
 
       if (mostRecentActiveRide == null ||
           ride.createdAt > mostRecentActiveRide!.createdAt) {
         mostRecentActiveRide = ride;
       }
-    });
+    }
 
     if (mostRecentActiveRide != null) {
+      _routeConfirmedByPassenger = false;
       _listenToRideRequest(mostRecentActiveRide!.id);
     }
   }
@@ -312,21 +378,50 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    // Starting a new destination selection must clear any old destination,
+    // route, and markers. The pickup is kept.
+    appInfo.clearTripSelection();
+    setState(() {
+      _activeRideRequest = null;
+      _lastObservedRideStatus = null;
+      _routeConfirmedByPassenger = false;
+      _currentSessionRideRequestId = null;
+      _confirmedEncodedPolyline = '';
+      _confirmedRouteMeters = 0;
+      _confirmedRouteSeconds = 0;
+      homeMapMarkers = <Marker>{};
+      homeMapPolylines = <Polyline>{};
+      _bookingStage = PassengerBookingStage.planning;
+      bottomMapPadding = _currentBottomSheetHeight;
+    });
+
     final dynamic result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const SelectDestinationPage()),
     );
 
     if (!mounted || result != 'route_confirmed') {
+      setState(() {
+        _routeConfirmedByPassenger = false;
+        if (appInfo.userDestinationLocation == null && _activeRideRequest == null) {
+          _bookingStage = PassengerBookingStage.overview;
+          bottomMapPadding = _currentBottomSheetHeight;
+        }
+      });
       return;
     }
 
+    _routeConfirmedByPassenger = true;
     await _drawRouteOnMap();
   }
 
 
 
   Future<void> _drawRouteOnMap() async {
+    if (!_routeConfirmedByPassenger) {
+      return;
+    }
+
     final AppInfo appInfo = Provider.of<AppInfo>(context, listen: false);
     final AddressModel? pickup = appInfo.userPickupLocation;
     final AddressModel? dropoff = appInfo.userDestinationLocation;
@@ -438,6 +533,7 @@ class _HomePageState extends State<HomePage> {
       _bookingStage = PassengerBookingStage.routeSummary;
       _activeRideRequest = null;
       _lastObservedRideStatus = null;
+      _routeConfirmedByPassenger = true;
       _confirmedEncodedPolyline = encodedPolyline;
       _confirmedRouteMeters = totalMeters;
       _confirmedRouteSeconds = totalSeconds;
@@ -471,6 +567,27 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _createRideRequest() async {
+    if (_isCreatingRideRequest) {
+      return;
+    }
+
+    if (_activeRideRequest != null) {
+      associateMethods.showSnackBarMsg(
+        'You already have an active ride request.',
+        context,
+      );
+      return;
+    }
+
+    if (_bookingStage != PassengerBookingStage.routeSummary ||
+        !_routeConfirmedByPassenger) {
+      associateMethods.showSnackBarMsg(
+        'Please select and confirm a destination first.',
+        context,
+      );
+      return;
+    }
+
     final AppInfo appInfo = Provider.of<AppInfo>(context, listen: false);
     final AddressModel? pickup = appInfo.userPickupLocation;
     final AddressModel? dropoff = appInfo.userDestinationLocation;
@@ -481,7 +598,7 @@ class _HomePageState extends State<HomePage> {
         pickup.longitudePosition == null ||
         dropoff.latitudePosition == null ||
         dropoff.longitudePosition == null ||
-        _confirmedEncodedPolyline.isEmpty) {
+        _confirmedRouteMeters <= 0) {
       associateMethods.showSnackBarMsg(
         'Select a route before requesting a taxi.',
         context,
@@ -516,6 +633,8 @@ class _HomePageState extends State<HomePage> {
             })
         .toList();
 
+    _isCreatingRideRequest = true;
+
     try {
       await requestRef.set(<String, dynamic>{
         'passengerId': FirebaseAuth.instance.currentUser!.uid,
@@ -549,6 +668,7 @@ class _HomePageState extends State<HomePage> {
         'cancelledAt': null,
       });
 
+      _currentSessionRideRequestId = requestId;
       _listenToRideRequest(requestId);
 
       if (!mounted) return;
@@ -559,6 +679,8 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (!mounted) return;
       associateMethods.showSnackBarMsg('Unable to request a taxi: $e', context);
+    } finally {
+      _isCreatingRideRequest = false;
     }
   }
 
@@ -587,6 +709,14 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _handleRideRequestUpdate(RideRequestModel ride) {
+    // A restored/old searching request must never take over the passenger UI.
+    // Only the request created by pressing Book Ride in this current session is
+    // allowed to show the "Looking for driver" state.
+    if (ride.status == 'searching' &&
+        ride.id != _currentSessionRideRequestId) {
+      return;
+    }
+
     final bool statusChanged = _lastObservedRideStatus != ride.status;
 
     setState(() {
@@ -741,6 +871,8 @@ class _HomePageState extends State<HomePage> {
       _bookingStage = PassengerBookingStage.overview;
       _activeRideRequest = null;
       _lastObservedRideStatus = null;
+      _routeConfirmedByPassenger = false;
+      _currentSessionRideRequestId = null;
       _assignedDriverLatLng = null;
       _assignedDriverProfile = null;
       _confirmedEncodedPolyline = '';
@@ -790,6 +922,7 @@ class _HomePageState extends State<HomePage> {
     if (_bookingStage == PassengerBookingStage.routeSummary) {
       setState(() {
         _bookingStage = PassengerBookingStage.planning;
+        _routeConfirmedByPassenger = false;
         bottomMapPadding = _currentBottomSheetHeight;
       });
       return;
@@ -800,6 +933,7 @@ class _HomePageState extends State<HomePage> {
       appInfo.clearTripSelection();
       setState(() {
         _bookingStage = PassengerBookingStage.overview;
+        _routeConfirmedByPassenger = false;
         homeMapMarkers.clear();
         homeMapPolylines.clear();
         _confirmedEncodedPolyline = '';

@@ -1,66 +1,50 @@
-// Firebase and authentication packages
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-// Flutter core packages
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-// Permission handling for location access
 import 'package:permission_handler/permission_handler.dart';
-import 'package:provider/provider.dart' show ChangeNotifierProvider;
-// App pages and navigation
-import 'package:soltech_app/auth/signin_page.dart';
-import 'package:soltech_app/pages/home_page.dart';
-import 'package:soltech_app/firebase_options.dart';
-import 'appinfo/app_info.dart' show AppInfo;
+import 'package:provider/provider.dart';
 
-/// Main entry point for the Soltech App
-///
-/// Initializes:
-/// - Firebase for authentication and data management
-/// - Location permissions for map-based services
-/// - Routes to SignIn or Home page based on auth state
-void main() async {
-  // Ensure Flutter binding is initialized before async operations
+import 'core/app_state/app_info.dart';
+import 'core/design_system/app_theme.dart';
+import 'core/session/app_session.dart';
+import 'firebase_options.dart';
+import 'features/passenger/passenger_app_gateway.dart';
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase with platform-specific configuration
-  // (automatically selects correct settings for Android/iOS/Web)
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Request location permission on app startup
-  // - Check if permission is already denied
-  // - If denied, request permission from user
-  await Permission.locationWhenInUse.isDenied.then((value) {
-    if (value) {
-      Permission.locationWhenInUse.request();
-    }
-  });
+  if (!kIsWeb) {
+    try {
+      if (await Permission.locationWhenInUse.isDenied) {
+        await Permission.locationWhenInUse.request();
+      }
+    } catch (_) {}
+  }
 
-  // Start the Flutter app after all initialization is complete
-  runApp(const MyApp());}
+  runApp(const SoltechPassengerApp());
+}
 
-/// Root widget for the Soltech App
-/// Configures:
-/// - Material Design theme
-/// - Initial route based on authentication state
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class SoltechPassengerApp extends StatelessWidget {
+  const SoltechPassengerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => AppInfo(),
-      child: MaterialApp(
-        title: 'Users App',
-        theme: ThemeData(
-          // Use deep purple as the primary color scheme
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppInfo>(create: (_) => AppInfo()),
+        ChangeNotifierProvider<AppSession>(
+          create: (_) => AppSession()..bootstrap(),
         ),
-        // Route to SignInPage if user is not authenticated, otherwise HomePage
-        home: FirebaseAuth.instance.currentUser == null
-            ? const SignInPage()
-            : const HomePage(),
+      ],
+      child: MaterialApp(
+        title: 'Soltech Passenger',
+        debugShowCheckedModeBanner: false,
+        theme: SoltechTheme.light(),
+        home: const PassengerAppGateway(),
       ),
     );
   }

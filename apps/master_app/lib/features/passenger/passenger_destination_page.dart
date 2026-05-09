@@ -349,6 +349,29 @@ class _SelectDestinationPageState extends State<SelectDestinationPage> {
     }
 
     final AppInfo appInfo = Provider.of<AppInfo>(context, listen: false);
+    final AddressModel? pickup = appInfo.userPickupLocation;
+    final AddressModel finalDestination = _selectedStops.last;
+
+    if (pickup?.latitudePosition != null &&
+        pickup?.longitudePosition != null &&
+        finalDestination.latitudePosition != null &&
+        finalDestination.longitudePosition != null) {
+      final double pickupToDestinationMeters = Geolocator.distanceBetween(
+        pickup!.latitudePosition!,
+        pickup.longitudePosition!,
+        finalDestination.latitudePosition!,
+        finalDestination.longitudePosition!,
+      );
+
+      if (pickupToDestinationMeters < 25) {
+        associateMethods.showSnackBarMsg(
+          'Destination cannot be the same as your current location.',
+          context,
+        );
+        return;
+      }
+    }
+
     appInfo.clearIntermediateStops();
 
     for (int i = 0; i < _selectedStops.length - 1; i++) {
