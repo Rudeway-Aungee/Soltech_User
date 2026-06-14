@@ -202,6 +202,7 @@ class _FleetControlHomePageState extends State<FleetControlHomePage> {
                 TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
                 ElevatedButton(
                   onPressed: () async {
+                    final bool isMounted = dialogContext.mounted;
                     FleetVehicle? selectedVehicle;
                     for (final FleetVehicle item in vehicles) {
                       if (item.id == selectedVehicleId) {
@@ -221,7 +222,7 @@ class _FleetControlHomePageState extends State<FleetControlHomePage> {
                       if (selectedVehicle != null) 'plateNumber': selectedVehicle.plateNumber,
                       'updatedAt': now,
                     });
-                    if (dialogContext.mounted) Navigator.pop(dialogContext);
+                    if (isMounted) Navigator.pop(dialogContext);
                   },
                   child: const Text('Assign'),
                 ),
@@ -250,12 +251,14 @@ class _FleetControlHomePageState extends State<FleetControlHomePage> {
         return _FleetProfileEditorDialog(
           fleet: fleet,
           onSave: (_FleetProfileFormData data) async {
+            final bool isMounted = dialogContext.mounted;
             await _db.child('fleets/$fleetId').update(<String, dynamic>{
               'name': data.name,
               'phone': data.phone,
               'email': data.email,
               'updatedAt': DateTime.now().millisecondsSinceEpoch,
             });
+            if (isMounted) Navigator.pop(dialogContext);
           },
         );
       },
@@ -270,17 +273,6 @@ class _FleetControlHomePageState extends State<FleetControlHomePage> {
     );
   }
 
-  Widget _dialogField(TextEditingController controller, String label) {
-    return TextField(
-      controller: controller,
-      textCapitalization: label.contains('Plate') ? TextCapitalization.characters : TextCapitalization.words,
-      decoration: InputDecoration(labelText: label),
-    );
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
 }
 
 class _VehicleFormData {
@@ -706,7 +698,11 @@ class _DashboardTab extends StatelessWidget {
         if (status == 'completed') {
           completedEarnings += fare;
           final String paymentMethod = (ride['paymentMethod'] ?? 'cash').toString();
-          if (paymentMethod == 'digital') digitalLedger += fare; else cashLedger += fare;
+          if (paymentMethod == 'digital') {
+            digitalLedger += fare;
+          } else {
+            cashLedger += fare;
+          }
         } else if (status != 'cancelled') {
           activeTripCount++;
         }
@@ -1327,7 +1323,11 @@ class _LedgerTab extends StatelessWidget {
         final double fare = _doubleFrom(ride['fareEstimate']);
         completed += fare;
         trips++;
-        if ((ride['paymentMethod'] ?? 'cash').toString() == 'digital') digital += fare; else cash += fare;
+        if ((ride['paymentMethod'] ?? 'cash').toString() == 'digital') {
+          digital += fare;
+        } else {
+          cash += fare;
+        }
       }
     }
     return _FleetSummary(tripCount: trips, completedEarnings: completed, cashLedger: cash, digitalLedger: digital);

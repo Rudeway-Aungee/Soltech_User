@@ -781,9 +781,9 @@ class _SelectDestinationPageState extends State<SelectDestinationPage> {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.06),
+          color: Colors.green.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.green.withOpacity(0.18)),
+          border: Border.all(color: Colors.green.withValues(alpha: 0.18)),
         ),
         child: const Text(
           'Tip: Add more than one location for multiple stops. The last location becomes the final destination.',
@@ -876,7 +876,7 @@ class _SelectDestinationPageState extends State<SelectDestinationPage> {
           shape: BoxShape.circle,
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: Colors.black.withOpacity(0.20),
+              color: Colors.black.withValues(alpha: 0.20),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -915,7 +915,7 @@ class _SelectDestinationPageState extends State<SelectDestinationPage> {
           shape: BoxShape.circle,
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: Colors.black.withOpacity(0.20),
+              color: Colors.black.withValues(alpha: 0.20),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -948,7 +948,7 @@ class _SelectDestinationPageState extends State<SelectDestinationPage> {
       ),
       boxShadow: <BoxShadow>[
         BoxShadow(
-          color: Colors.black.withOpacity(0.10),
+          color: Colors.black.withValues(alpha: 0.10),
           blurRadius: 18,
           offset: const Offset(0, -4),
         ),

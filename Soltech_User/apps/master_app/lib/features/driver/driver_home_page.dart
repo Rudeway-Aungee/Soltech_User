@@ -1100,21 +1100,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  String _formatTimestamp(int? timestamp) {
-    if (timestamp == null || timestamp == 0) {
-      return 'Unknown time';
-    }
-
-    final DateTime date = DateTime.fromMillisecondsSinceEpoch(
-      timestamp,
-    ).toLocal();
-    final String month = date.month.toString().padLeft(2, '0');
-    final String day = date.day.toString().padLeft(2, '0');
-    final String hour = date.hour.toString().padLeft(2, '0');
-    final String minute = date.minute.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day $hour:$minute';
-  }
-
   Widget _buildOnlineSwitchCard() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

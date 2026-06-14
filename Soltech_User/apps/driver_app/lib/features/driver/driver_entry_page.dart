@@ -32,6 +32,8 @@ class _DriverEntryPageState extends State<DriverEntryPage> {
 
   Future<void> _login() async {
     if (_busy) return;
+    final bool isMounted = mounted;
+    final AppSession? session = isMounted ? context.read<AppSession>() : null;
     FocusScope.of(context).unfocus();
     setState(() => _busy = true);
     try {
@@ -55,7 +57,7 @@ class _DriverEntryPageState extends State<DriverEntryPage> {
       if (!email.contains('@')) throw Exception('Driver login is incomplete. Contact your Fleet Admin.');
 
       await _auth.signInWithEmailAndPassword(email: email, password: password);
-      final AppSession session = context.read<AppSession>();
+      if (session == null) return;
       await session.completeAuthentication(AppRole.driver);
       if (!mounted) return;
       if (session.status != AppSessionStatus.ready && session.status != AppSessionStatus.driverPending) {
@@ -65,9 +67,11 @@ class _DriverEntryPageState extends State<DriverEntryPage> {
       }
     } on FirebaseAuthException catch (e) {
       await _auth.signOut();
+      if (!mounted) return;
       _showMessage(e.message ?? 'Driver login failed.');
     } catch (e) {
       await _auth.signOut();
+      if (!mounted) return;
       _showMessage(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _busy = false);
