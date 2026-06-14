@@ -275,14 +275,14 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (mostRecentActiveRide == null ||
-          ride.createdAt > mostRecentActiveRide!.createdAt) {
+          ride.createdAt > mostRecentActiveRide.createdAt) {
         mostRecentActiveRide = ride;
       }
     }
 
     if (mostRecentActiveRide != null) {
       _routeConfirmedByPassenger = false;
-      _listenToRideRequest(mostRecentActiveRide!.id);
+      _listenToRideRequest(mostRecentActiveRide.id);
     }
   }
 
@@ -1166,7 +1166,7 @@ class _HomePageState extends State<HomePage> {
     if (animateCamera && routePoints.isNotEmpty) {
       final List<LatLng> cameraPoints = <LatLng>[
         ...routePoints,
-        if (_assignedDriverLatLng != null) _assignedDriverLatLng!,
+        ?_assignedDriverLatLng,
       ];
       _fitCameraToPoints(cameraPoints);
     }

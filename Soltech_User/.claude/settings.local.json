@@ -1,0 +1,19 @@
+{
+  "env": {
+    "ANTROPIC_AUTH_TOKEN": "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",
+    "ANTHROPIC_BASE URL": "https://openrouter.ai/api",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "openrouter/free",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "openrouter/free",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "openrouter/free"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(dir *)",
+      "PowerShell(flutter *)",
+      "Bash(flutter analyze *)",
+      "Bash(Get-ChildItem -Path apps -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)"
+    ]
+  }
+}

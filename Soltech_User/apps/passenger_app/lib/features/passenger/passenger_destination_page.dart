@@ -781,9 +781,9 @@ class _SelectDestinationPageState extends State<SelectDestinationPage> {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.06),
+          color: Colors.green.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.green.withOpacity(0.18)),
+          border: Border.all(color: Colors.green.withValues(alpha: 0.18)),
         ),
         child: const Text(
           'Tip: Add more than one location for multiple stops. The last location becomes the final destination.',

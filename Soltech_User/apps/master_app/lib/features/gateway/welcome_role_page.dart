@@ -639,7 +639,7 @@ class _WelcomeRolePageState extends State<WelcomeRolePage> {
           'Swipe left or right to switch entry',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: SoltechColors.muted.withOpacity(0.78),
+            color: SoltechColors.muted.withValues(alpha: 0.78),
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
